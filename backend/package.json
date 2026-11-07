@@ -1,0 +1,14 @@
+{
+  "name": "osh-markazi-pos-backend",
+  "version": "1.0.0",
+  "description": "Universal Osh Markazi & Fast-Casual Restaurant Backend API, Real-Time POS, KDS & Queue Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
