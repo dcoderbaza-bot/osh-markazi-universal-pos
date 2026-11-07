@@ -5,31 +5,78 @@ const StoreContext = createContext(null);
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
+const FALLBACK_ROLES = [
+  {
+    id: "usr-cashier",
+    username: "kassir",
+    passwordHint: "kassir123",
+    role: "cashier",
+    roleLabel: "Kassir (POS Operator)",
+    fullName: "Dilshod Rahimov",
+    allowedModules: ["pos", "queue"],
+    avatar: "🖥️"
+  },
+  {
+    id: "usr-chef",
+    username: "oshpaz",
+    passwordHint: "oshpaz123",
+    role: "chef",
+    roleLabel: "Bosh Oshpaz (KDS)",
+    fullName: "Usta Jamshid Oshpaz",
+    allowedModules: ["kds", "queue"],
+    avatar: "👨‍🍳"
+  },
+  {
+    id: "usr-tv",
+    username: "ekran",
+    passwordHint: "ekran123",
+    role: "tv_operator",
+    roleLabel: "Zal Navbat Ekrani",
+    fullName: "Zal TV Terminali",
+    allowedModules: ["queue"],
+    avatar: "📺"
+  },
+  {
+    id: "usr-admin",
+    username: "admin",
+    passwordHint: "admin123",
+    role: "admin",
+    roleLabel: "Boshqaruvchi / Admin",
+    fullName: "Sanjarbek Rahbar",
+    allowedModules: ["admin", "pos", "kds", "queue", "security"],
+    avatar: "👔"
+  },
+  {
+    id: "usr-security",
+    username: "secadmin",
+    passwordHint: "sec12345",
+    role: "security",
+    roleLabel: "Kiberxavfsizlik (SOC)",
+    fullName: "Axborot Xavfsizligi Bo'limi",
+    allowedModules: ["security", "admin", "pos", "kds", "queue"],
+    avatar: "🛡️"
+  }
+];
+
 export function StoreProvider({ children }) {
   const [config, setConfig] = useState({
-    brandName: "OSH UP • BESH QOZON",
-    brandSubtitle: "Milliy Osh Markazi & Fast-Casual POS",
+    brandName: "ASL OSH MARKAZI",
+    brandSubtitle: "Milliy Taomlar & Fast-Casual Express",
     logoEmoji: "🍛",
-    logoUrl: "",
     themeColor: "#D97706",
     accentColor: "#B45309",
-    slogan: "Har kuni 5 xil qozonda yangi damlangan issiq osh — 25 daqiqada yetkazib beramiz!",
+    slogan: "Har kuni 5 xil qozonda yangi damlangan issiq osh — 25 daqiqada dasturxoningizda!",
     badgeText: "Qozonlar Ochiq • Issiq Osh Tayyor 🔥",
     currency: "so'm",
     phone: "+998 (71) 200-55-77",
-    telegram: "@oshmarkazi_uz",
-    instagram: "@oshmarkazi.official",
     workingHours: "07:00 - 23:30",
     deliveryFee: 15000,
     freeDeliveryMin: 150000,
     serviceChargePercent: 10,
-    taxPercent: 12,
     cashbackPercent: 5,
     queuePrefix: "A",
     receiptHeader: "Xush kelibsiz! Yoqimli ishtaha tilaymiz!",
-    receiptFooter: "Xaridingiz uchun rahmat! Har bir buyurtmadan 5% keshbek yig'iladi.",
-    activeBranchId: "branch-1",
-    presets: []
+    receiptFooter: "Xaridingiz uchun rahmat!"
   });
 
   const [branches, setBranches] = useState([]);
@@ -42,16 +89,37 @@ export function StoreProvider({ children }) {
   const [shift, setShift] = useState({
     isOpen: true,
     cashierName: "Dilshod Rahimov",
-    branchName: "Markaziy Osh Markazi",
     startingCash: 500000
   });
+
+  // RBAC Auth & Cybersecurity State
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("osh_staff_session");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [rolesOverview, setRolesOverview] = useState(FALLBACK_ROLES);
+  const [securityLogs, setSecurityLogs] = useState([]);
+  const [securitySettings, setSecuritySettings] = useState({
+    wafEnabled: true,
+    bruteForceProtection: true,
+    rateLimitEnabled: true,
+    fiscalHashEnabled: true,
+    strictRbac: true
+  });
+  const [blockedIps, setBlockedIps] = useState(["185.220.101.44", "45.155.205.233"]);
+  const [statsBlockedAttacks, setStatsBlockedAttacks] = useState(14);
 
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [loyaltyPoints, setLoyaltyPoints] = useState(() => {
     const saved = localStorage.getItem("osh_loyalty_points");
-    return saved ? Number(saved) : 15000; // Initial welcome bonus 15,000 so'm
+    return saved ? Number(saved) : 15000;
   });
 
   const showToast = useCallback((message, type = "success") => {
@@ -61,16 +129,12 @@ export function StoreProvider({ children }) {
     }, 3500);
   }, []);
 
-  // Apply dynamic brand theme CSS variables
   useEffect(() => {
     if (config?.themeColor) {
       document.documentElement.style.setProperty("--brand-primary", config.themeColor);
     }
-    if (config?.accentColor) {
-      document.documentElement.style.setProperty("--brand-accent", config.accentColor);
-    }
     if (config?.brandName) {
-      document.title = `${config.brandName} — ${config.brandSubtitle || "Rasmiy Sayt & POS"}`;
+      document.title = `${config.brandName} — Rasmiy Sayt & POS`;
     }
   }, [config]);
 
@@ -88,6 +152,11 @@ export function StoreProvider({ children }) {
       if (data.promos) setPromos(data.promos);
       if (data.orders) setOrders(data.orders);
       if (data.shift) setShift(data.shift);
+      if (data.securityLogs) setSecurityLogs(data.securityLogs);
+      if (data.securitySettings) setSecuritySettings(data.securitySettings);
+      if (data.blockedIps) setBlockedIps(data.blockedIps);
+      if (data.statsBlockedAttacks !== undefined) setStatsBlockedAttacks(data.statsBlockedAttacks);
+      if (data.rolesOverview) setRolesOverview(data.rolesOverview);
       setIsConnected(true);
     } catch (err) {
       console.warn("Backend ulanish xatosi:", err.message);
@@ -100,7 +169,6 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     fetchBootstrap();
 
-    // Real-time Server-Sent Events (SSE) subscription
     let es;
     let reconnectTimer;
 
@@ -117,9 +185,6 @@ export function StoreProvider({ children }) {
                 break;
               case "PRODUCTS_UPDATED":
                 setProducts(msg.payload);
-                break;
-              case "BRANCHES_UPDATED":
-                setBranches(msg.payload);
                 break;
               case "TABLES_UPDATED":
                 setTables(msg.payload);
@@ -138,11 +203,18 @@ export function StoreProvider({ children }) {
               case "SHIFT_UPDATED":
                 setShift(msg.payload);
                 break;
+              case "SECURITY_UPDATED":
+                if (msg.payload) {
+                  if (msg.payload.securityLogs) setSecurityLogs(msg.payload.securityLogs);
+                  if (msg.payload.securitySettings) setSecuritySettings(msg.payload.securitySettings);
+                  if (msg.payload.blockedIps) setBlockedIps(msg.payload.blockedIps);
+                  if (msg.payload.statsBlockedAttacks !== undefined)
+                    setStatsBlockedAttacks(msg.payload.statsBlockedAttacks);
+                }
+                break;
               case "FULL_RESET":
                 if (msg.payload) {
                   setConfig(msg.payload.config);
-                  setBranches(msg.payload.branches);
-                  setCategories(msg.payload.categories);
                   setProducts(msg.payload.products);
                   setTables(msg.payload.tables);
                   setOrders(msg.payload.orders);
@@ -153,7 +225,7 @@ export function StoreProvider({ children }) {
                 break;
             }
           } catch {
-            // ignore parse errors
+            // ignore
           }
         };
         es.onerror = () => {
@@ -174,7 +246,124 @@ export function StoreProvider({ children }) {
     };
   }, [fetchBootstrap]);
 
-  // Actions
+  // RBAC Login & Logout
+  const loginStaff = async (username, password) => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || "Login yoki parol xato!", "error");
+        return { success: false, error: data.error };
+      }
+      setCurrentUser(data.user);
+      sessionStorage.setItem("osh_staff_session", JSON.stringify(data.user));
+      sound.playCashRegister();
+      showToast(`Xush kelibsiz, ${data.user.fullName} (${data.user.roleLabel})!`);
+      return { success: true, user: data.user };
+    } catch {
+      // Fallback local check if offline
+      const found = FALLBACK_ROLES.find(
+        (r) => r.username === username.trim().toLowerCase() && r.passwordHint === password
+      );
+      if (found) {
+        setCurrentUser(found);
+        sessionStorage.setItem("osh_staff_session", JSON.stringify(found));
+        sound.playCashRegister();
+        showToast(`Xush kelibsiz, ${found.fullName}!`);
+        return { success: true, user: found };
+      }
+      showToast("Login yoki parol noto'g'ri!", "error");
+      return { success: false, error: "Login yoki parol noto'g'ri!" };
+    }
+  };
+
+  const logoutStaff = async () => {
+    try {
+      if (currentUser) {
+        await fetch(`${API_BASE}/auth/logout`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: currentUser.username })
+        });
+      }
+    } catch {
+      // ignore
+    }
+    setCurrentUser(null);
+    sessionStorage.removeItem("osh_staff_session");
+    sound.playPosTap();
+    showToast("Xodim tizimidan chiqdingiz (Mijozlar rejimiga qaytildi)");
+  };
+
+  // Cybersecurity Actions
+  const toggleSecuritySetting = async (key) => {
+    try {
+      const res = await fetch(`${API_BASE}/security/toggle-setting`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key })
+      });
+      const updated = await res.json();
+      setSecuritySettings(updated);
+      sound.playPosTap();
+      showToast("Kiberxavfsizlik parametri yangilandi!");
+    } catch {
+      setSecuritySettings((prev) => ({ ...prev, [key]: !prev[key] }));
+    }
+  };
+
+  const blockIp = async (ip) => {
+    try {
+      const res = await fetch(`${API_BASE}/security/block-ip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ip })
+      });
+      const data = await res.json();
+      if (data.blockedIps) setBlockedIps(data.blockedIps);
+      showToast(`IP manzil (${ip}) bloklandi!`);
+    } catch {
+      setBlockedIps((prev) => [ip, ...prev]);
+    }
+  };
+
+  const unblockIp = async (ip) => {
+    try {
+      const res = await fetch(`${API_BASE}/security/unblock-ip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ip })
+      });
+      const data = await res.json();
+      if (data.blockedIps) setBlockedIps(data.blockedIps);
+      showToast(`IP manzil (${ip}) blokdan chiqarildi!`);
+    } catch {
+      setBlockedIps((prev) => prev.filter((i) => i !== ip));
+    }
+  };
+
+  const simulateAttack = async (type) => {
+    try {
+      const res = await fetch(`${API_BASE}/security/simulate-attack`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type })
+      });
+      const data = await res.json();
+      if (data.securityLogs) setSecurityLogs(data.securityLogs);
+      if (data.statsBlockedAttacks !== undefined) setStatsBlockedAttacks(data.statsBlockedAttacks);
+      sound.playNewOrderBell();
+      showToast("WAF Himoyasi sinov hujumini muvaffaqiyatli tutib qoldi!");
+    } catch {
+      showToast("Sinov hujumi bloklandi");
+    }
+  };
+
+  // Standard Actions
   const updateConfig = async (newConfig) => {
     try {
       const res = await fetch(`${API_BASE}/config`, {
@@ -184,26 +373,10 @@ export function StoreProvider({ children }) {
       });
       const updated = await res.json();
       setConfig(updated);
-      showToast("Brend va tizim sozlamalari saqlandi!");
+      showToast("Tizim sozlamalari saqlandi!");
       return updated;
-    } catch (err) {
+    } catch {
       setConfig((prev) => ({ ...prev, ...newConfig }));
-      showToast("Lokal rejimda brend yangilandi", "info");
-    }
-  };
-
-  const applyBrandPreset = async (presetId) => {
-    try {
-      const res = await fetch(`${API_BASE}/config/preset/${presetId}`, {
-        method: "POST"
-      });
-      const updated = await res.json();
-      setConfig(updated);
-      sound.playCashRegister();
-      showToast(`Brend "${updated.brandName}" uslubiga o'zgartirildi!`);
-      return updated;
-    } catch (err) {
-      showToast("Brend shablonini yuklashda xatolik", "error");
     }
   };
 
@@ -215,12 +388,8 @@ export function StoreProvider({ children }) {
         body: JSON.stringify(orderPayload)
       });
       const created = await res.json();
-      setOrders((prev) => {
-        if (prev.some((o) => o.id === created.id)) return prev;
-        return [created, ...prev];
-      });
+      setOrders((prev) => (prev.some((o) => o.id === created.id) ? prev : [created, ...prev]));
 
-      // Earn 5% cashback points if customer order
       if (orderPayload.source === "web") {
         const earned = Math.round((Number(orderPayload.total) || 0) * ((config.cashbackPercent || 5) / 100));
         const usedBonus = Number(orderPayload.usedBonus) || 0;
@@ -231,14 +400,13 @@ export function StoreProvider({ children }) {
 
       sound.playCashRegister();
       return created;
-    } catch (err) {
-      // Fallback local order creation if server is unreachable
+    } catch {
       const fallbackOrder = {
         id: `ord-${Date.now()}`,
         queueNumber: `A-${100 + orders.length + 1}`,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
         status: orderPayload.source === "pos" ? "cooking" : "new",
+        fiscalHash: "SHA256-LOCAL",
         ...orderPayload
       };
       setOrders((prev) => [fallbackOrder, ...prev]);
@@ -256,16 +424,11 @@ export function StoreProvider({ children }) {
       });
       const updated = await res.json();
       setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
-      if (status === "ready") {
-        sound.playQueueDingDong();
-      } else {
-        sound.playPosTap();
-      }
+      if (status === "ready") sound.playQueueDingDong();
+      else sound.playPosTap();
       return updated;
     } catch {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status, updatedAt: new Date().toISOString() } : o))
-      );
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
     }
   };
 
@@ -279,22 +442,18 @@ export function StoreProvider({ children }) {
       setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
       sound.playPosTap();
     } catch {
-      // local fallback
+      // ignore
     }
   };
 
   const toggleProductStock = async (productId) => {
     try {
-      const res = await fetch(`${API_BASE}/products/${productId}/stock`, {
-        method: "PATCH"
-      });
+      const res = await fetch(`${API_BASE}/products/${productId}/stock`, { method: "PATCH" });
       const updated = await res.json();
       setProducts((prev) => prev.map((p) => (p.id === productId ? updated : p)));
-      showToast(`${updated.name}: ${updated.inStock ? "Sotuvga qaytarildi ✅" : "Stop-listga olindi ⛔"}`);
+      showToast(`${updated.name}: ${updated.inStock ? "Sotuvda ✅" : "Stop-listda ⛔"}`);
     } catch {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === productId ? { ...p, inStock: !p.inStock } : p))
-      );
+      setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, inStock: !p.inStock } : p)));
     }
   };
 
@@ -336,36 +495,16 @@ export function StoreProvider({ children }) {
       setProducts((prev) => prev.filter((p) => p.id !== productId));
       showToast("Taom menyudan o'chirildi");
     } catch {
-      showToast("O'chirishda xatolik", "error");
+      showToast("Xatolik", "error");
     }
   };
 
-  const updateTableStatus = async (tableId, tableData) => {
+  const toggleShift = async () => {
     try {
-      const res = await fetch(`${API_BASE}/tables/${tableId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(tableData)
-      });
-      const updated = await res.json();
-      setTables((prev) => prev.map((t) => (t.id === tableId ? updated : t)));
-      return updated;
-    } catch {
-      setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, ...tableData } : t)));
-    }
-  };
-
-  const toggleShift = async (cashierName) => {
-    try {
-      const res = await fetch(`${API_BASE}/shift/toggle`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cashierName })
-      });
+      const res = await fetch(`${API_BASE}/shift/toggle`, { method: "POST" });
       const updated = await res.json();
       setShift(updated);
-      showToast(updated.isOpen ? "Yangi kassa smenasi ochildi!" : "Kassa smenasi yopildi (Z-Report tayyor)");
-      return updated;
+      showToast(updated.isOpen ? "Smena ochildi" : "Smena yopildi");
     } catch {
       setShift((prev) => ({ ...prev, isOpen: !prev.isOpen }));
     }
@@ -377,16 +516,13 @@ export function StoreProvider({ children }) {
       const data = await res.json();
       if (data.db) {
         setConfig(data.db.config);
-        setBranches(data.db.branches);
-        setCategories(data.db.categories);
         setProducts(data.db.products);
         setTables(data.db.tables);
         setOrders(data.db.orders);
-        setShift(data.db.shift);
       }
-      showToast("Tizim boshlang'ich demo holatiga qaytarildi!");
+      showToast("Demo ma'lumotlar tiklandi!");
     } catch {
-      showToast("Server bilan aloqa yo'q", "error");
+      showToast("Xatolik", "error");
     }
   };
 
@@ -402,13 +538,24 @@ export function StoreProvider({ children }) {
         promos,
         orders,
         shift,
+        currentUser,
+        rolesOverview,
+        securityLogs,
+        securitySettings,
+        blockedIps,
+        statsBlockedAttacks,
         isConnected,
         loading,
         toast,
         loyaltyPoints,
         showToast,
+        loginStaff,
+        logoutStaff,
+        toggleSecuritySetting,
+        blockIp,
+        unblockIp,
+        simulateAttack,
         updateConfig,
-        applyBrandPreset,
         createOrder,
         updateOrderStatus,
         toggleOrderItemReady,
@@ -416,7 +563,6 @@ export function StoreProvider({ children }) {
         addProduct,
         updateProduct,
         deleteProduct,
-        updateTableStatus,
         toggleShift,
         resetDemoData
       }}

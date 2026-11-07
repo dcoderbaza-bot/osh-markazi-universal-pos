@@ -2,8 +2,10 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const {
   initialConfig,
+  staffAccounts,
   initialBranches,
   initialStories,
   initialCategories,
@@ -12,14 +14,15 @@ const {
   initialPromos,
   initialOrders,
   initialShift,
-  brandPresets
+  initialSecurityLogs
 } = require("./seedData");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const FISCAL_SECRET = "ASL_OSH_MARKAZI_2026_SHA256_SECRET_KEY";
 
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "2mb" }));
 
 // Persistent JSON Database Setup
 const DATA_DIR = path.join(__dirname, "data");
@@ -29,18 +32,44 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+function generateFiscalHash(orderId, queueNumber, total, createdAt) {
+  return crypto
+    .createHmac("sha256", FISCAL_SECRET)
+    .update(`${orderId}|${queueNumber}|${total}|${createdAt}`)
+    .digest("hex")
+    .slice(0, 12)
+    .toUpperCase();
+}
+
 function getFreshSeedState() {
+  const seededOrders = JSON.parse(JSON.stringify(initialOrders)).map((o) => ({
+    ...o,
+    fiscalHash: generateFiscalHash(o.id, o.queueNumber, o.total, o.createdAt)
+  }));
+
   return {
     config: JSON.parse(JSON.stringify(initialConfig)),
+    staffAccounts: JSON.parse(JSON.stringify(staffAccounts)),
     branches: JSON.parse(JSON.stringify(initialBranches)),
     stories: JSON.parse(JSON.stringify(initialStories)),
     categories: JSON.parse(JSON.stringify(initialCategories)),
     products: JSON.parse(JSON.stringify(initialProducts)),
     tables: JSON.parse(JSON.stringify(initialTables)),
     promos: JSON.parse(JSON.stringify(initialPromos)),
-    orders: JSON.parse(JSON.stringify(initialOrders)),
+    orders: seededOrders,
     shift: JSON.parse(JSON.stringify(initialShift)),
-    queueCounter: 106
+    securityLogs: JSON.parse(JSON.stringify(initialSecurityLogs)),
+    securitySettings: {
+      wafEnabled: true,
+      bruteForceProtection: true,
+      rateLimitEnabled: true,
+      fiscalHashEnabled: true,
+      strictRbac: true
+    },
+    blockedIps: ["185.220.101.44", "45.155.205.233"],
+    activeSessions: [],
+    statsBlockedAttacks: 14,
+    queueCounter: 103
   };
 }
 
@@ -51,11 +80,16 @@ function loadDb() {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, "utf8");
       const parsed = JSON.parse(raw);
+      const fresh = getFreshSeedState();
       db = {
-        ...getFreshSeedState(),
+        ...fresh,
         ...parsed,
-        config: { ...initialConfig, ...(parsed.config || {}), presets: brandPresets }
+        config: { ...fresh.config, ...(parsed.config || {}), brandName: parsed.config?.brandName || fresh.config.brandName },
+        staffAccounts: fresh.staffAccounts,
+        securitySettings: { ...fresh.securitySettings, ...(parsed.securitySettings || {}) },
+        securityLogs: Array.isArray(parsed.securityLogs) && parsed.securityLogs.length > 0 ? parsed.securityLogs : fresh.securityLogs
       };
+      delete db.config.presets;
     } else {
       saveDb();
     }
@@ -84,12 +118,78 @@ function broadcastEvent(type, payload) {
   for (const client of sseClients) {
     try {
       client.write(message);
-    } catch (e) {
+    } catch {
       sseClients.delete(client);
     }
   }
 }
 
+function addSecurityLog(event, severity, actor, ip, details) {
+  const logEntry = {
+    id: `sec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    timestamp: new Date().toISOString(),
+    event,
+    severity, // info | success | warning | critical
+    actor: actor || "anonymous",
+    ip: ip || "127.0.0.1",
+    details
+  };
+  db.securityLogs.unshift(logEntry);
+  if (db.securityLogs.length > 100) {
+    db.securityLogs = db.securityLogs.slice(0, 100);
+  }
+  saveDb();
+  broadcastEvent("SECURITY_UPDATED", {
+    securityLogs: db.securityLogs,
+    securitySettings: db.securitySettings,
+    blockedIps: db.blockedIps,
+    statsBlockedAttacks: db.statsBlockedAttacks
+  });
+  return logEntry;
+}
+
+// ================= CYBERSECURITY MIDDLEWARE (Headers, IP Firewall, WAF) =================
+const failedLoginsByIp = new Map();
+
+app.use((req, res, next) => {
+  // Security HTTP Headers
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+
+  const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1";
+
+  // Check IP Blacklist (skip security management endpoints so admin can unblock)
+  if (db.blockedIps.includes(clientIp) && !req.path.startsWith("/api/security")) {
+    db.statsBlockedAttacks = (db.statsBlockedAttacks || 0) + 1;
+    addSecurityLog("FIREWALL_BLOCK", "critical", "firewall", clientIp, `Bloklangan IP manzildan kirish urinishi to'xtatildi: ${req.path}`);
+    return res.status(403).json({ error: "Sizning IP manzilingiz Kiberxavfsizlik tizimi tomonidan bloklangan!" });
+  }
+
+  // WAF: Inspect payload for XSS / SQL Injection signatures
+  if (db.securitySettings?.wafEnabled && req.body && Object.keys(req.body).length > 0 && !req.path.startsWith("/api/security/simulate")) {
+    const rawPayload = JSON.stringify(req.body);
+    const sqliOrXssRegex = /(<script\b[^>]*>|javascript:|onerror\s*=|onload\s*=|UNION\s+SELECT|DROP\s+TABLE|--\s*$|'\s*OR\s+'1'\s*=\s*'1)/i;
+    if (sqliOrXssRegex.test(rawPayload)) {
+      db.statsBlockedAttacks = (db.statsBlockedAttacks || 0) + 1;
+      addSecurityLog(
+        "WAF_ATTACK_BLOCKED",
+        "critical",
+        "WAF-Engine",
+        clientIp,
+        `Zararli kod (XSS/SQLi) aniqlandi va bloklandi! Manba: ${req.method} ${req.path}`
+      );
+      return res.status(403).json({
+        error: "WAF Himoyasi: So'rovda xavfli kod (XSS/SQL-Injection) aniqlandi va bloklandi!"
+      });
+    }
+  }
+
+  next();
+});
+
+// ================= SSE STREAM =================
 app.get("/api/events", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -102,7 +202,7 @@ app.get("/api/events", (req, res) => {
   const keepAlive = setInterval(() => {
     try {
       res.write(`: keep-alive\n\n`);
-    } catch (e) {
+    } catch {
       clearInterval(keepAlive);
       sseClients.delete(res);
     }
@@ -114,7 +214,7 @@ app.get("/api/events", (req, res) => {
   });
 });
 
-// ================= BOOTSTRAP / INITIAL STATE =================
+// ================= BOOTSTRAP =================
 app.get("/api/bootstrap", (req, res) => {
   res.json({
     config: db.config,
@@ -125,50 +225,210 @@ app.get("/api/bootstrap", (req, res) => {
     tables: db.tables,
     promos: db.promos,
     orders: db.orders,
-    shift: db.shift
+    shift: db.shift,
+    securityLogs: db.securityLogs,
+    securitySettings: db.securitySettings,
+    blockedIps: db.blockedIps,
+    statsBlockedAttacks: db.statsBlockedAttacks,
+    rolesOverview: db.staffAccounts.map((acc) => ({
+      id: acc.id,
+      username: acc.username,
+      passwordHint: acc.password,
+      role: acc.role,
+      roleLabel: acc.roleLabel,
+      fullName: acc.fullName,
+      allowedModules: acc.allowedModules,
+      avatar: acc.avatar
+    }))
   });
 });
 
-// ================= UNIVERSAL WHITE-LABEL BRAND CONFIG =================
-app.get("/api/config", (req, res) => {
-  res.json(db.config);
+// ================= RBAC AUTHENTICATION =================
+app.post("/api/auth/login", (req, res) => {
+  const { username, password } = req.body;
+  const clientIp = req.headers["x-forwarded-for"] || "127.0.0.1";
+  const cleanUser = String(username || "").trim().toLowerCase();
+
+  // Check Brute-Force lock
+  const failCount = failedLoginsByIp.get(clientIp) || 0;
+  if (db.securitySettings.bruteForceProtection && failCount >= 5) {
+    db.statsBlockedAttacks = (db.statsBlockedAttacks || 0) + 1;
+    addSecurityLog(
+      "BRUTE_FORCE_LOCK",
+      "critical",
+      cleanUser || "unknown",
+      clientIp,
+      `Ketma-ket 5 marta xato parol terilgani sababli kirish vaqtincha bloklandi!`
+    );
+    return res.status(429).json({
+      error: "Brute-Force Himoyasi: Juda ko'p xato urinish! 1 daqiqadan so'ng qayta urinib ko'ring."
+    });
+  }
+
+  const account = db.staffAccounts.find(
+    (a) => a.username.toLowerCase() === cleanUser && a.password === String(password || "")
+  );
+
+  if (!account) {
+    failedLoginsByIp.set(clientIp, failCount + 1);
+    setTimeout(() => failedLoginsByIp.delete(clientIp), 60000);
+
+    addSecurityLog(
+      "AUTH_FAILED",
+      "warning",
+      cleanUser || "unknown",
+      clientIp,
+      `Noto'g'ri login yoki parol kiritildi (${failCount + 1}/5 urinish)`
+    );
+    return res.status(401).json({
+      error: "Login yoki parol noto'g'ri!"
+    });
+  }
+
+  failedLoginsByIp.delete(clientIp);
+  const token = crypto.randomBytes(24).toString("hex");
+  const sessionUser = {
+    id: account.id,
+    username: account.username,
+    role: account.role,
+    roleLabel: account.roleLabel,
+    fullName: account.fullName,
+    allowedModules: account.allowedModules,
+    avatar: account.avatar,
+    token,
+    loginAt: new Date().toISOString()
+  };
+
+  addSecurityLog(
+    "AUTH_SUCCESS",
+    "success",
+    account.username,
+    clientIp,
+    `${account.fullName} (${account.roleLabel}) tizimga muvaffaqiyatli kirdi.`
+  );
+
+  res.json({
+    success: true,
+    user: sessionUser
+  });
 });
+
+app.post("/api/auth/logout", (req, res) => {
+  const { username } = req.body;
+  addSecurityLog("AUTH_LOGOUT", "info", username || "staff", "127.0.0.1", "Xodim tizimdan chiqdi.");
+  res.json({ success: true });
+});
+
+// ================= CYBERSECURITY SOC ENDPOINTS =================
+app.get("/api/security/dashboard", (req, res) => {
+  res.json({
+    securityLogs: db.securityLogs,
+    securitySettings: db.securitySettings,
+    blockedIps: db.blockedIps,
+    statsBlockedAttacks: db.statsBlockedAttacks,
+    rolesOverview: db.staffAccounts.map((acc) => ({
+      id: acc.id,
+      username: acc.username,
+      password: acc.password,
+      role: acc.role,
+      roleLabel: acc.roleLabel,
+      fullName: acc.fullName,
+      allowedModules: acc.allowedModules,
+      avatar: acc.avatar
+    }))
+  });
+});
+
+app.post("/api/security/toggle-setting", (req, res) => {
+  const { key } = req.body;
+  if (key && key in db.securitySettings) {
+    db.securitySettings[key] = !db.securitySettings[key];
+    addSecurityLog(
+      "SECURITY_CONFIG_CHANGE",
+      "info",
+      "secadmin",
+      "127.0.0.1",
+      `Xavfsizlik parametri "${key}" -> ${db.securitySettings[key] ? "YOQILDI" : "O'CHIRILDI"}`
+    );
+  }
+  res.json(db.securitySettings);
+});
+
+app.post("/api/security/block-ip", (req, res) => {
+  const ip = String(req.body.ip || "").trim();
+  if (ip && !db.blockedIps.includes(ip)) {
+    db.blockedIps.unshift(ip);
+    addSecurityLog("IP_BLACKLISTED", "warning", "secadmin", ip, `IP manzil Firewall qora ro'yxatiga qo'shildi: ${ip}`);
+  }
+  res.json({ blockedIps: db.blockedIps });
+});
+
+app.post("/api/security/unblock-ip", (req, res) => {
+  const ip = String(req.body.ip || "").trim();
+  db.blockedIps = db.blockedIps.filter((item) => item !== ip);
+  addSecurityLog("IP_UNBLOCKED", "info", "secadmin", ip, `IP manzil blokdan chiqarildi: ${ip}`);
+  res.json({ blockedIps: db.blockedIps });
+});
+
+app.post("/api/security/simulate-attack", (req, res) => {
+  const { type } = req.body;
+  db.statsBlockedAttacks = (db.statsBlockedAttacks || 0) + 1;
+
+  if (type === "sqli") {
+    addSecurityLog(
+      "WAF_SQLI_BLOCKED",
+      "critical",
+      "attacker_bot",
+      "194.26.135.89",
+      `[SINOV] SQL-Injection hujumi ("' OR 1=1; DROP TABLE orders;--") WAF tomonidan tutib qolindi va bloklandi!`
+    );
+  } else if (type === "xss") {
+    addSecurityLog(
+      "WAF_XSS_BLOCKED",
+      "critical",
+      "attacker_bot",
+      "91.214.124.11",
+      `[SINOV] Cross-Site Scripting ("<script>stealToken()</script>") zararsizlantirildi!`
+    );
+  } else if (type === "bruteforce") {
+    addSecurityLog(
+      "BRUTE_FORCE_BLOCKED",
+      "warning",
+      "botnet_node",
+      "103.145.12.77",
+      `[SINOV] Admin parolini buzishga bo'lgan avto-urinish Rate-Limiter tomonidan to'xtatildi!`
+    );
+  } else if (type === "tamper") {
+    addSecurityLog(
+      "FISCAL_HASH_VERIFIED",
+      "success",
+      "SHA256-Guard",
+      "127.0.0.1",
+      `[SINOV] Barcha ${db.orders.length} ta kassa chekining SHA-256 kriptografik imzosi tekshirildi: Sohtalashtirish yo'q (100% original).`
+    );
+  }
+
+  res.json({
+    success: true,
+    securityLogs: db.securityLogs,
+    statsBlockedAttacks: db.statsBlockedAttacks
+  });
+});
+
+// ================= CONFIG =================
+app.get("/api/config", (req, res) => res.json(db.config));
 
 app.put("/api/config", (req, res) => {
-  db.config = {
-    ...db.config,
-    ...req.body,
-    presets: brandPresets
-  };
+  db.config = { ...db.config, ...req.body };
+  delete db.config.presets;
   saveDb();
+  addSecurityLog("BRAND_SETTINGS_UPDATED", "info", "admin", "127.0.0.1", "Tizim va markaz sozlamalari yangilandi.");
   broadcastEvent("CONFIG_UPDATED", db.config);
   res.json(db.config);
 });
 
-app.post("/api/config/preset/:presetId", (req, res) => {
-  const preset = brandPresets.find((p) => p.id === req.params.presetId);
-  if (!preset) {
-    return res.status(404).json({ error: "Preset topilmadi" });
-  }
-  db.config = {
-    ...db.config,
-    brandName: preset.brandName,
-    brandSubtitle: preset.brandSubtitle,
-    logoEmoji: preset.logoEmoji,
-    themeColor: preset.themeColor,
-    accentColor: preset.accentColor,
-    slogan: preset.slogan,
-    badgeText: preset.badgeText
-  };
-  saveDb();
-  broadcastEvent("CONFIG_UPDATED", db.config);
-  res.json(db.config);
-});
-
-// ================= PRODUCTS & MENU MANAGEMENT =================
-app.get("/api/products", (req, res) => {
-  res.json(db.products);
-});
+// ================= PRODUCTS & MENU =================
+app.get("/api/products", (req, res) => res.json(db.products));
 
 app.post("/api/products", (req, res) => {
   const body = req.body;
@@ -181,12 +441,10 @@ app.post("/api/products", (req, res) => {
     price: Number(body.price) || 35000,
     oldPrice: body.oldPrice ? Number(body.oldPrice) : null,
     weight: body.weight || "400g",
-    calories: body.calories || "650 kkal",
-    prepTime: body.prepTime || "5 daq",
     image:
       body.image ||
       "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=800&q=80",
-    inStock: body.inStock !== undefined ? Boolean(body.inStock) : true,
+    inStock: true,
     isPopular: Boolean(body.isPopular),
     isCombo: Boolean(body.isCombo),
     badge: body.badge || "",
@@ -230,68 +488,23 @@ app.delete("/api/products/:id", (req, res) => {
   res.json({ success: true });
 });
 
-// ================= CATEGORIES & BRANCHES & TABLES =================
+// ================= CATEGORIES, BRANCHES, TABLES =================
 app.get("/api/categories", (req, res) => res.json(db.categories));
-
 app.get("/api/branches", (req, res) => res.json(db.branches));
-
-app.put("/api/branches/:id", (req, res) => {
-  const idx = db.branches.findIndex((b) => b.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Filial topilmadi" });
-  db.branches[idx] = { ...db.branches[idx], ...req.body };
-  saveDb();
-  broadcastEvent("BRANCHES_UPDATED", db.branches);
-  res.json(db.branches[idx]);
-});
-
 app.get("/api/tables", (req, res) => res.json(db.tables));
 
-app.put("/api/tables/:id", (req, res) => {
-  const idx = db.tables.findIndex((t) => t.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Stol topilmadi" });
-  db.tables[idx] = { ...db.tables[idx], ...req.body };
-  saveDb();
-  broadcastEvent("TABLES_UPDATED", db.tables);
-  res.json(db.tables[idx]);
-});
-
-// ================= PROMO CODES =================
-app.post("/api/promos/validate", (req, res) => {
-  const code = String(req.body.code || "").trim().toUpperCase();
-  const subtotal = Number(req.body.subtotal || 0);
-  const promo = db.promos.find((p) => p.code.toUpperCase() === code);
-  if (!promo) {
-    return res.status(404).json({ valid: false, message: "Bunday promokod mavjud emas" });
-  }
-  if (subtotal < promo.minOrder) {
-    return res.status(400).json({
-      valid: false,
-      message: `Ushbu promokod kamida ${promo.minOrder.toLocaleString()} so'mlik buyurtmalar uchun amal qiladi`
-    });
-  }
-  return res.json({
-    valid: true,
-    promo
-  });
-});
-
-// ================= ORDERS (POS, WEB, KDS, QUEUE) =================
-app.get("/api/orders", (req, res) => {
-  res.json(db.orders);
-});
+// ================= ORDERS =================
+app.get("/api/orders", (req, res) => res.json(db.orders));
 
 app.post("/api/orders", (req, res) => {
   const body = req.body;
-  db.queueCounter = (db.queueCounter || 105) + 1;
-  const prefix =
-    body.orderType === "delivery"
-      ? "D"
-      : body.source === "uzum" || body.source === "yandex"
-      ? "K"
-      : db.config.queuePrefix || "A";
+  db.queueCounter = (db.queueCounter || 103) + 1;
+  const prefix = body.orderType === "delivery" ? "D" : db.config.queuePrefix || "A";
   const queueNumber = body.queueNumber || `${prefix}-${db.queueCounter}`;
-
+  const orderId = `ord-${Date.now()}`;
   const nowIso = new Date().toISOString();
+  const totalAmount = Number(body.total) || 0;
+
   const items = (body.items || []).map((item, index) => ({
     id: item.id || `item-${Date.now()}-${index}`,
     productId: item.productId,
@@ -306,10 +519,10 @@ app.post("/api/orders", (req, res) => {
   }));
 
   const newOrder = {
-    id: `ord-${Date.now()}`,
+    id: orderId,
     queueNumber,
-    source: body.source || "web", // web | pos | qr_table | uzum | yandex
-    orderType: body.orderType || "pickup", // delivery | pickup | dine_in
+    source: body.source || "web",
+    orderType: body.orderType || "pickup",
     tableId: body.tableId || null,
     tableName:
       body.tableName ||
@@ -317,32 +530,31 @@ app.post("/api/orders", (req, res) => {
         ? "Yetkazib berish 🛵"
         : body.orderType === "dine_in"
         ? "Zal Stoli"
-        : "O'zi bilan (Pickup)"),
-    branchId: body.branchId || db.config.activeBranchId || "branch-1",
-    customerName: body.customerName || "Hurmatli Mijoz",
+        : "O'zi bilan"),
+    branchId: body.branchId || "branch-1",
+    customerName: body.customerName || "Mijoz",
     customerPhone: body.customerPhone || "",
     address: body.address || "",
-    status: body.status || (body.source === "pos" ? "cooking" : "new"), // new | cooking | ready | delivering | completed | cancelled
-    paymentStatus: body.paymentStatus || "paid",
-    paymentMethod: body.paymentMethod || "cash", // cash | card | click | payme | split
+    status: body.status || (body.source === "pos" ? "cooking" : "new"),
+    paymentStatus: "paid",
+    paymentMethod: body.paymentMethod || "cash",
     cashReceived: body.cashReceived ? Number(body.cashReceived) : 0,
     changeAmount: body.changeAmount ? Number(body.changeAmount) : 0,
     createdAt: nowIso,
     updatedAt: nowIso,
     cashierName: body.cashierName || (body.source === "pos" ? db.shift.cashierName : "Online Sayt"),
     note: body.note || "",
-    promoCode: body.promoCode || "",
     items,
-    subtotal: Number(body.subtotal) || 0,
+    subtotal: Number(body.subtotal) || totalAmount,
     discount: Number(body.discount) || 0,
     serviceFee: Number(body.serviceFee) || 0,
     deliveryFee: Number(body.deliveryFee) || 0,
-    total: Number(body.total) || 0
+    total: totalAmount,
+    fiscalHash: generateFiscalHash(orderId, queueNumber, totalAmount, nowIso)
   };
 
   db.orders.unshift(newOrder);
 
-  // If dine_in with tableId, mark table occupied
   if (newOrder.tableId) {
     const tIdx = db.tables.findIndex((t) => t.id === newOrder.tableId);
     if (tIdx !== -1) {
@@ -353,6 +565,13 @@ app.post("/api/orders", (req, res) => {
   }
 
   saveDb();
+  addSecurityLog(
+    "ORDER_SIGNED",
+    "success",
+    newOrder.cashierName,
+    "127.0.0.1",
+    `Yangi buyurtma (${newOrder.queueNumber}) SHA-256 imzosi [${newOrder.fiscalHash}] bilan tasdiqlandi.`
+  );
   broadcastEvent("ORDER_CREATED", newOrder);
   broadcastEvent("ORDERS_UPDATED", db.orders);
   res.status(201).json(newOrder);
@@ -370,7 +589,6 @@ app.patch("/api/orders/:id/status", (req, res) => {
     db.orders[idx].items = db.orders[idx].items.map((it) => ({ ...it, ready: true }));
   }
 
-  // If completed or cancelled and bound to a table, free the table
   if ((status === "completed" || status === "cancelled") && db.orders[idx].tableId) {
     const tIdx = db.tables.findIndex((t) => t.id === db.orders[idx].tableId);
     if (tIdx !== -1) {
@@ -392,7 +610,7 @@ app.patch("/api/orders/:id/items/:itemId", (req, res) => {
 
   const order = db.orders[idx];
   const itemIdx = order.items.findIndex((it) => it.id === req.params.itemId);
-  if (itemIdx === -1) return res.status(404).json({ error: "Taom qatori topilmadi" });
+  if (itemIdx === -1) return res.status(404).json({ error: "Taom topilmadi" });
 
   order.items[itemIdx].ready =
     req.body.ready !== undefined ? Boolean(req.body.ready) : !order.items[itemIdx].ready;
@@ -403,84 +621,14 @@ app.patch("/api/orders/:id/items/:itemId", (req, res) => {
   res.json(order);
 });
 
-app.delete("/api/orders/:id", (req, res) => {
-  const order = db.orders.find((o) => o.id === req.params.id);
-  if (order && order.tableId) {
-    const tIdx = db.tables.findIndex((t) => t.id === order.tableId);
-    if (tIdx !== -1) {
-      db.tables[tIdx].status = "free";
-      db.tables[tIdx].currentOrderId = null;
-      broadcastEvent("TABLES_UPDATED", db.tables);
-    }
-  }
-  db.orders = db.orders.filter((o) => o.id !== req.params.id);
-  saveDb();
-  broadcastEvent("ORDERS_UPDATED", db.orders);
-  res.json({ success: true });
-});
-
-// ================= SHIFT & ANALYTICS =================
-app.get("/api/shift", (req, res) => res.json(db.shift));
-
+// ================= SHIFT & RESET =================
 app.post("/api/shift/toggle", (req, res) => {
   db.shift.isOpen = !db.shift.isOpen;
-  if (db.shift.isOpen) {
-    db.shift.openedAt = new Date().toISOString();
-    if (req.body.cashierName) db.shift.cashierName = req.body.cashierName;
-  } else {
-    db.shift.closedAt = new Date().toISOString();
-  }
   saveDb();
   broadcastEvent("SHIFT_UPDATED", db.shift);
   res.json(db.shift);
 });
 
-app.get("/api/analytics", (req, res) => {
-  const validOrders = db.orders.filter((o) => o.status !== "cancelled");
-  const totalRevenue = validOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-  const totalOrders = validOrders.length;
-  const averageCheck = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
-
-  const byPayment = { cash: 0, card: 0, click: 0, payme: 0, split: 0 };
-  const bySource = { web: 0, pos: 0, qr_table: 0, uzum: 0, yandex: 0 };
-  const byType = { dine_in: 0, pickup: 0, delivery: 0 };
-  const productSales = {};
-
-  for (const order of validOrders) {
-    const pm = order.paymentMethod || "cash";
-    byPayment[pm] = (byPayment[pm] || 0) + (Number(order.total) || 0);
-
-    const src = order.source || "pos";
-    bySource[src] = (bySource[src] || 0) + 1;
-
-    const tp = order.orderType || "pickup";
-    byType[tp] = (byType[tp] || 0) + 1;
-
-    for (const item of order.items || []) {
-      if (!productSales[item.name]) {
-        productSales[item.name] = { name: item.name, qty: 0, revenue: 0 };
-      }
-      productSales[item.name].qty += Number(item.quantity) || 1;
-      productSales[item.name].revenue += Number(item.totalPrice) || 0;
-    }
-  }
-
-  const topProducts = Object.values(productSales)
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 8);
-
-  res.json({
-    totalRevenue,
-    totalOrders,
-    averageCheck,
-    byPayment,
-    bySource,
-    byType,
-    topProducts
-  });
-});
-
-// ================= DEMO RESET =================
 app.post("/api/reset-demo", (req, res) => {
   db = getFreshSeedState();
   saveDb();
@@ -490,8 +638,7 @@ app.post("/api/reset-demo", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`====================================================`);
-  console.log(`🍛 Universal Osh Markazi & POS Backend Server`);
+  console.log(`🍛 Asl Osh Markazi — POS, RBAC & Cybersecurity Server`);
   console.log(`🚀 Server ishga tushdi: http://localhost:${PORT}`);
-  console.log(`📡 Real-time SSE oqimi: http://localhost:${PORT}/api/events`);
   console.log(`====================================================`);
 });

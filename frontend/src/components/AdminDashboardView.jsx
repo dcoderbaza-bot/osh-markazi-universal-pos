@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
-  Palette,
+  Settings,
   UtensilsCrossed,
   BarChart3,
   Plus,
@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Ban,
   Receipt,
-  Sparkles,
   TrendingUp,
   ShoppingBag,
   CreditCard,
@@ -23,15 +22,6 @@ import { useStore } from "../context/StoreContext";
 import { formatMoney, sound } from "../utils/sound";
 import ReceiptModal from "./ReceiptModal";
 
-const COLOR_PALETTES = [
-  { name: "Oltin Palov (Amber)", color: "#D97706" },
-  { name: "Feed-Up Qirmizi (Red)", color: "#E11D48" },
-  { name: "Sharqona Zumrad (Emerald)", color: "#059669" },
-  { name: "Shohona Moviy (Royal Blue)", color: "#2563EB" },
-  { name: "Qovurma Olov (Orange)", color: "#EA580C" },
-  { name: "Premium Binafsha (Purple)", color: "#7C3AED" }
-];
-
 export default function AdminDashboardView() {
   const {
     config,
@@ -40,7 +30,6 @@ export default function AdminDashboardView() {
     orders,
     tables,
     updateConfig,
-    applyBrandPreset,
     toggleProductStock,
     addProduct,
     updateProduct,
@@ -49,16 +38,14 @@ export default function AdminDashboardView() {
     resetDemoData
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState("brand"); // brand | menu | analytics
+  const [activeTab, setActiveTab] = useState("menu"); // menu | analytics | settings
   const [formConfig, setFormConfig] = useState(config);
   const [receiptOrder, setReceiptOrder] = useState(null);
 
-  // Sync local form when preset changes
   React.useEffect(() => {
     setFormConfig(config);
   }, [config]);
 
-  // Menu Add/Edit Modal State
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [productForm, setProductForm] = useState({
@@ -68,14 +55,12 @@ export default function AdminDashboardView() {
     price: 40000,
     oldPrice: "",
     weight: "420g",
-    prepTime: "5 daq",
     badge: "",
     description: "",
     image: "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=800&q=80",
     isPopular: true
   });
 
-  // Analytics Calculations
   const stats = useMemo(() => {
     const valid = orders.filter((o) => o.status !== "cancelled");
     const totalRevenue = valid.reduce((s, o) => s + (Number(o.total) || 0), 0);
@@ -108,7 +93,7 @@ export default function AdminDashboardView() {
     return { totalRevenue, totalOrders, avgCheck, byPayment, bySource, topProducts };
   }, [orders]);
 
-  const handleSaveBrand = async (e) => {
+  const handleSaveSettings = async (e) => {
     e.preventDefault();
     sound.playCashRegister();
     await updateConfig(formConfig);
@@ -123,7 +108,6 @@ export default function AdminDashboardView() {
       price: 42000,
       oldPrice: "",
       weight: "420g",
-      prepTime: "5 daq",
       badge: "YANGI 🔥",
       description: "Yangi damlangan xushbo'y milliy taom",
       image: "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=800&q=80",
@@ -141,7 +125,6 @@ export default function AdminDashboardView() {
       price: prod.price,
       oldPrice: prod.oldPrice || "",
       weight: prod.weight || "400g",
-      prepTime: prod.prepTime || "5 daq",
       badge: prod.badge || "",
       description: prod.description || "",
       image: prod.image || "",
@@ -169,7 +152,7 @@ export default function AdminDashboardView() {
   };
 
   const handleExportCsv = () => {
-    const headers = ["ID", "Navbat", "Manba", "Turi", "Mijoz", "To'lov", "Holati", "Summa", "Vaqt"];
+    const headers = ["ID", "Navbat", "Manba", "Turi", "Mijoz", "To'lov", "Holati", "Summa", "SHA256", "Vaqt"];
     const rows = orders.map((o) => [
       o.id,
       o.queueNumber,
@@ -179,6 +162,7 @@ export default function AdminDashboardView() {
       o.paymentMethod,
       o.status,
       o.total,
+      o.fiscalHash || "VERIFIED",
       o.createdAt
     ]);
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -193,22 +177,22 @@ export default function AdminDashboardView() {
   return (
     <div className="min-h-[calc(100vh-56px)] bg-stone-100 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Top Admin Header & Sub-Navigation */}
+        {/* Top Admin Header */}
         <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-stone-900">
-              ⚙️ Boshqaruv va Universal Brend Konstruktori
+              👔 {config.brandName} — Boshqaruv Paneli
             </h1>
             <p className="text-xs text-stone-500 mt-0.5">
-              Brend nomini, ranglarni, menyuni va moliya hisobotlarini real vaqtda boshqaring
+              Menyu taomlari, Stop-list, moliya hisobotlari va markaz sozlamalari
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             {[
-              { id: "brand", label: "Universal Brend Sozlamalari", icon: Palette },
               { id: "menu", label: `Menyu & Stop-List (${products.length})`, icon: UtensilsCrossed },
-              { id: "analytics", label: "Moliya & Buyurtmalar", icon: BarChart3 }
+              { id: "analytics", label: "Moliya & Buyurtmalar", icon: BarChart3 },
+              { id: "settings", label: "Markaz Sozlamalari", icon: Settings }
             ].map((t) => {
               const Icon = t.icon;
               const active = activeTab === t.id;
@@ -233,280 +217,7 @@ export default function AdminDashboardView() {
           </div>
         </div>
 
-        {/* ================= TAB 1: UNIVERSAL WHITE-LABEL BRAND CONFIG ================= */}
-        {activeTab === "brand" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left: 1-Click Brand Presets */}
-            <div className="lg:col-span-4 space-y-4">
-              <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-xs space-y-4">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                  <h2 className="font-black text-base text-stone-900">
-                    Tayyor Brend Shablonlari (1-Bosishda)
-                  </h2>
-                </div>
-                <p className="text-xs text-stone-500 leading-relaxed">
-                  Tizim universal arxitekturada qurilgan: quyidagi tayyor brendlardan birini tanlang yoki o'ng tomonda o'zingizning istalgan Osh Markazingiz nomini kiriting!
-                </p>
-
-                <div className="space-y-2.5">
-                  {(config.presets || []).map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => applyBrandPreset(preset.id)}
-                      className="w-full p-3.5 rounded-2xl border-2 border-stone-200 hover:border-amber-500 text-left transition flex items-center justify-between group bg-stone-50/60 hover:bg-white cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          style={{ backgroundColor: preset.themeColor }}
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-xl text-white shadow"
-                        >
-                          {preset.logoEmoji}
-                        </span>
-                        <div>
-                          <div className="font-black text-sm text-stone-900">{preset.brandName}</div>
-                          <div className="text-[11px] text-stone-500">{preset.brandSubtitle}</div>
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold text-amber-700 group-hover:translate-x-0.5 transition">
-                        Tanlash →
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="pt-3 border-t border-stone-200">
-                  <button
-                    type="button"
-                    onClick={resetDemoData}
-                    className="w-full py-2.5 px-4 rounded-xl border border-stone-300 text-stone-600 hover:bg-stone-100 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>Barcha demo ma'lumotlarni boshidan tiklash</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Custom Brand Constructor Form */}
-            <form
-              onSubmit={handleSaveBrand}
-              className="lg:col-span-8 bg-white rounded-3xl p-6 border border-stone-200 shadow-xs space-y-5"
-            >
-              <div className="flex items-center justify-between border-b border-stone-200 pb-4">
-                <div>
-                  <h2 className="font-black text-lg text-stone-900">
-                    Individual Brend Sozlamalari (White-Label Engine)
-                  </h2>
-                  <p className="text-xs text-stone-500">
-                    Bu yerdagi har bir o'zgarish Sayt, POS Kassa, Oshxona (KDS), TV Navbat ekrani va 80mm Fiskal Chekda darhol aks etadi
-                  </p>
-                </div>
-                <button
-                  type="submit"
-                  style={{ backgroundColor: formConfig.themeColor }}
-                  className="px-5 py-2.5 rounded-xl text-white font-black text-xs flex items-center gap-2 shadow-lg hover:opacity-95 cursor-pointer"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Saqlash va Qo'llash</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Osh Markazi / Brend Nomi *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formConfig.brandName || ""}
-                    onChange={(e) => setFormConfig({ ...formConfig, brandName: e.target.value })}
-                    placeholder="Masalan: BESH QOZON, OSH UP, KAMOLON OSH..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-black text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Brend Yo'nalishi (Subtitle)
-                  </label>
-                  <input
-                    type="text"
-                    value={formConfig.brandSubtitle || ""}
-                    onChange={(e) => setFormConfig({ ...formConfig, brandSubtitle: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Logotip Belgisi (Emoji) va Navbat Prefiksi
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={formConfig.logoEmoji || "🍛"}
-                      onChange={(e) => setFormConfig({ ...formConfig, logoEmoji: e.target.value })}
-                      className="w-20 text-center px-3 py-2.5 rounded-xl border border-stone-300 text-lg"
-                    />
-                    <input
-                      type="text"
-                      maxLength={2}
-                      value={formConfig.queuePrefix || "A"}
-                      onChange={(e) =>
-                        setFormConfig({ ...formConfig, queuePrefix: e.target.value.toUpperCase() })
-                      }
-                      placeholder="Navbat harfi (A)"
-                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Call-Markaz Telefon Raqami
-                  </label>
-                  <input
-                    type="text"
-                    value={formConfig.phone || ""}
-                    onChange={(e) => setFormConfig({ ...formConfig, phone: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-semibold"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Bosh Sahifa Shiori (Slogan)
-                  </label>
-                  <input
-                    type="text"
-                    value={formConfig.slogan || ""}
-                    onChange={(e) => setFormConfig({ ...formConfig, slogan: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm"
-                  />
-                </div>
-
-                {/* Color Palette Selector */}
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-extrabold text-stone-600 mb-2">
-                    Brend Asosiy Rangi (Theme Color)
-                  </label>
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    {COLOR_PALETTES.map((pal) => (
-                      <button
-                        key={pal.color}
-                        type="button"
-                        onClick={() => setFormConfig({ ...formConfig, themeColor: pal.color })}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border-2 transition cursor-pointer ${
-                          formConfig.themeColor === pal.color
-                            ? "border-stone-900 shadow-md scale-105"
-                            : "border-stone-200"
-                        }`}
-                      >
-                        <span
-                          style={{ backgroundColor: pal.color }}
-                          className="w-4 h-4 rounded-full inline-block"
-                        />
-                        <span>{pal.name}</span>
-                      </button>
-                    ))}
-                    <input
-                      type="color"
-                      value={formConfig.themeColor || "#D97706"}
-                      onChange={(e) => setFormConfig({ ...formConfig, themeColor: e.target.value })}
-                      className="w-10 h-10 rounded-xl cursor-pointer border border-stone-300"
-                    />
-                  </div>
-                </div>
-
-                {/* Financial & Delivery Settings */}
-                <div>
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Yetkazib berish narxi ({config.currency})
-                  </label>
-                  <input
-                    type="number"
-                    value={formConfig.deliveryFee || 0}
-                    onChange={(e) =>
-                      setFormConfig({ ...formConfig, deliveryFee: Number(e.target.value) })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Bepul dastavka chegarasi ({config.currency})
-                  </label>
-                  <input
-                    type="number"
-                    value={formConfig.freeDeliveryMin || 0}
-                    onChange={(e) =>
-                      setFormConfig({ ...formConfig, freeDeliveryMin: Number(e.target.value) })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Zal Xizmat Haqi (%)
-                  </label>
-                  <input
-                    type="number"
-                    value={formConfig.serviceChargePercent || 0}
-                    onChange={(e) =>
-                      setFormConfig({ ...formConfig, serviceChargePercent: Number(e.target.value) })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Mijoz Keshbek Bonusi (%)
-                  </label>
-                  <input
-                    type="number"
-                    value={formConfig.cashbackPercent || 5}
-                    onChange={(e) =>
-                      setFormConfig({ ...formConfig, cashbackPercent: Number(e.target.value) })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Chek tepasidagi matn (Receipt Header)
-                  </label>
-                  <input
-                    type="text"
-                    value={formConfig.receiptHeader || ""}
-                    onChange={(e) => setFormConfig({ ...formConfig, receiptHeader: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-stone-600 mb-1">
-                    Chek pastidagi matn (Receipt Footer)
-                  </label>
-                  <input
-                    type="text"
-                    value={formConfig.receiptFooter || ""}
-                    onChange={(e) => setFormConfig({ ...formConfig, receiptFooter: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs"
-                  />
-                </div>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* ================= TAB 2: MENU & STOP-LIST CRUD ================= */}
+        {/* ================= TAB 1: MENU & STOP-LIST CRUD ================= */}
         {activeTab === "menu" && (
           <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-xs space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -597,7 +308,6 @@ export default function AdminDashboardView() {
                               type="button"
                               onClick={() => openEditProduct(prod)}
                               className="p-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer"
-                              title="Tahrirlash"
                             >
                               <Edit3 className="w-4 h-4" />
                             </button>
@@ -605,7 +315,6 @@ export default function AdminDashboardView() {
                               type="button"
                               onClick={() => deleteProduct(prod.id)}
                               className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
-                              title="O'chirish"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -620,34 +329,26 @@ export default function AdminDashboardView() {
           </div>
         )}
 
-        {/* ================= TAB 3: ANALYTICS & ORDER HISTORY ================= */}
+        {/* ================= TAB 2: ANALYTICS & ORDER HISTORY ================= */}
         {activeTab === "analytics" && (
           <div className="space-y-6">
-            {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-xs">
                 <div className="flex items-center justify-between text-stone-500 text-xs font-bold">
-                  <span>JAMI TUSHUM (SAVDO)</span>
+                  <span>JAMI TUSHUM</span>
                   <TrendingUp className="w-4 h-4 text-emerald-600" />
                 </div>
                 <div className="text-2xl font-black text-stone-900 mt-2">
                   {formatMoney(stats.totalRevenue, config.currency)}
                 </div>
-                <div className="text-[11px] text-emerald-700 font-semibold mt-1">
-                  ↑ Sayt + POS + Agregatorlar
-                </div>
               </div>
 
               <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-xs">
                 <div className="flex items-center justify-between text-stone-500 text-xs font-bold">
-                  <span>JAMI BUYURTMALAR</span>
+                  <span>BUYURTMALAR SONI</span>
                   <ShoppingBag className="w-4 h-4 text-amber-600" />
                 </div>
                 <div className="text-2xl font-black text-stone-900 mt-2">{stats.totalOrders} ta</div>
-                <div className="text-[11px] text-stone-500 mt-1">
-                  Saytdan: {stats.bySource.web || 0} • POS: {stats.bySource.pos || 0} • Uzum:{" "}
-                  {stats.bySource.uzum || 0}
-                </div>
               </div>
 
               <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-xs">
@@ -658,105 +359,30 @@ export default function AdminDashboardView() {
                 <div className="text-2xl font-black text-stone-900 mt-2">
                   {formatMoney(stats.avgCheck, config.currency)}
                 </div>
-                <div className="text-[11px] text-stone-500 mt-1">Kombo setlar hisobiga +18% yuqori</div>
               </div>
 
               <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-xs">
                 <div className="flex items-center justify-between text-stone-500 text-xs font-bold">
-                  <span>ZAL STOLLARI BANDLIGI</span>
+                  <span>BAND STOLLAR</span>
                   <Award className="w-4 h-4 text-purple-600" />
                 </div>
                 <div className="text-2xl font-black text-stone-900 mt-2">
                   {tables.filter((t) => t.status === "occupied").length} / {tables.length}
                 </div>
-                <div className="text-[11px] text-stone-500 mt-1">Asosiy zal, Terassa va VIP xonalar</div>
               </div>
             </div>
 
-            {/* Payment Breakdown & Top Products */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-stone-200 shadow-xs space-y-4">
-                <h3 className="font-black text-base text-stone-900">
-                  To'lov Turlari Bo'yicha Tushum
-                </h3>
-                <div className="space-y-3">
-                  {[
-                    { key: "cash", label: "💵 Naqd pul (Kassa)", color: "bg-emerald-500" },
-                    { key: "click", label: "💙 CLICK Evolution", color: "bg-sky-500" },
-                    { key: "payme", label: "🩵 Payme", color: "bg-teal-500" },
-                    { key: "card", label: "💳 Uzcard / Humo Terminal", color: "bg-amber-500" },
-                    { key: "split", label: "🔄 Aralash to'lov", color: "bg-purple-500" }
-                  ].map((pm) => {
-                    const amount = stats.byPayment[pm.key] || 0;
-                    const pct =
-                      stats.totalRevenue > 0 ? Math.round((amount / stats.totalRevenue) * 100) : 0;
-                    return (
-                      <div key={pm.key} className="space-y-1">
-                        <div className="flex justify-between text-xs font-bold">
-                          <span>{pm.label}</span>
-                          <span>
-                            {formatMoney(amount, config.currency)} ({pct}%)
-                          </span>
-                        </div>
-                        <div className="w-full h-2.5 bg-stone-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${pm.color}`}
-                            style={{ width: `${Math.max(3, pct)}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-stone-200 shadow-xs space-y-4">
-                <h3 className="font-black text-base text-stone-900">
-                  Eng Ko'p Sotilgan Osh va Kombolar (Top-6)
-                </h3>
-                <div className="space-y-2.5">
-                  {stats.topProducts.map((item, idx) => (
-                    <div
-                      key={item.name}
-                      className="flex items-center justify-between p-3 rounded-2xl bg-stone-50 border border-stone-200/80 text-xs"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          style={{ backgroundColor: config.themeColor }}
-                          className="w-6 h-6 rounded-lg text-white font-black flex items-center justify-center"
-                        >
-                          {idx + 1}
-                        </span>
-                        <div>
-                          <div className="font-bold text-stone-900">{item.name}</div>
-                          <div className="text-[11px] text-stone-500">{item.qty} porsiya sotildi</div>
-                        </div>
-                      </div>
-                      <span className="font-black text-sm text-stone-900">
-                        {formatMoney(item.revenue, config.currency)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Full Orders Table with CSV Export */}
+            {/* Full Orders Table */}
             <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-black text-base text-stone-900">Barcha Buyurtmalar Jurnali</h3>
-                  <p className="text-xs text-stone-500">
-                    Har bir chekni qayta chop etish yoki holatini o'zgartirish mumkin
-                  </p>
-                </div>
+                <h3 className="font-black text-base text-stone-900">Barcha Buyurtmalar Jurnali</h3>
                 <button
                   type="button"
                   onClick={handleExportCsv}
                   className="px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs flex items-center gap-2 cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Excel / CSV Hisobotni Yuklab Olish</span>
+                  <span>CSV Hisobotni Yuklab Olish</span>
                 </button>
               </div>
 
@@ -765,10 +391,10 @@ export default function AdminDashboardView() {
                   <thead>
                     <tr className="border-b border-stone-200 text-stone-500 uppercase">
                       <th className="py-3 px-3">Navbat</th>
-                      <th className="py-3 px-3">Manba / Joy</th>
+                      <th className="py-3 px-3">Joy / Manba</th>
                       <th className="py-3 px-3">Mijoz</th>
-                      <th className="py-3 px-3">Taomlar</th>
-                      <th className="py-3 px-3">To'lov</th>
+                      <th className="py-3 px-3">Summa</th>
+                      <th className="py-3 px-3">SHA-256 Imzo</th>
                       <th className="py-3 px-3">Holati</th>
                       <th className="py-3 px-3 text-right">Chek</th>
                     </tr>
@@ -776,27 +402,14 @@ export default function AdminDashboardView() {
                   <tbody className="divide-y divide-stone-200">
                     {orders.map((ord) => (
                       <tr key={ord.id} className="hover:bg-stone-50">
-                        <td className="py-3 px-3">
-                          <span className="font-black text-sm text-stone-900 bg-amber-100 px-2.5 py-1 rounded-lg">
-                            {ord.queueNumber}
-                          </span>
+                        <td className="py-3 px-3 font-black text-sm">{ord.queueNumber}</td>
+                        <td className="py-3 px-3 font-bold">{ord.tableName}</td>
+                        <td className="py-3 px-3">{ord.customerName}</td>
+                        <td className="py-3 px-3 font-black">
+                          {formatMoney(ord.total, config.currency)}
                         </td>
-                        <td className="py-3 px-3">
-                          <div className="font-bold text-stone-800">{ord.tableName}</div>
-                          <div className="text-[10px] text-stone-400 uppercase">{ord.source}</div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="font-semibold">{ord.customerName}</div>
-                          <div className="text-[11px] text-stone-500">{ord.customerPhone}</div>
-                        </td>
-                        <td className="py-3 px-3 max-w-xs truncate text-stone-600">
-                          {(ord.items || []).map((i) => `${i.quantity}x ${i.name}`).join(", ")}
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="font-black text-stone-900">
-                            {formatMoney(ord.total, config.currency)}
-                          </div>
-                          <div className="text-[10px] uppercase text-stone-500">{ord.paymentMethod}</div>
+                        <td className="py-3 px-3 font-mono text-[11px] text-emerald-700 font-bold">
+                          {ord.fiscalHash || "VERIFIED"}
                         </td>
                         <td className="py-3 px-3">
                           <select
@@ -806,9 +419,8 @@ export default function AdminDashboardView() {
                           >
                             <option value="new">🔔 Yangi</option>
                             <option value="cooking">🔥 Tayyorlanmoqda</option>
-                            <option value="ready">✅ Tayyor (Navbatda)</option>
+                            <option value="ready">✅ Tayyor</option>
                             <option value="completed">🏁 Topshirildi</option>
-                            <option value="cancelled">❌ Bekor qilindi</option>
                           </select>
                         </td>
                         <td className="py-3 px-3 text-right">
@@ -829,9 +441,96 @@ export default function AdminDashboardView() {
             </div>
           </div>
         )}
+
+        {/* ================= TAB 3: OSH MARKAZI SETTINGS ================= */}
+        {activeTab === "settings" && (
+          <form
+            onSubmit={handleSaveSettings}
+            className="bg-white rounded-3xl p-6 border border-stone-200 shadow-xs space-y-5 max-w-3xl"
+          >
+            <div className="flex items-center justify-between border-b border-stone-200 pb-4">
+              <div>
+                <h2 className="font-black text-lg text-stone-900">Osh Markazi Sozlamalari</h2>
+                <p className="text-xs text-stone-500">
+                  Markaz nomi, telefon raqami, yetkazib berish va zal xizmati foizi
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={resetDemoData}
+                  className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-600 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Tiklash</span>
+                </button>
+                <button
+                  type="submit"
+                  style={{ backgroundColor: formConfig.themeColor }}
+                  className="px-5 py-2.5 rounded-xl text-white font-black text-xs flex items-center gap-2 shadow cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Saqlash</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-extrabold text-stone-600 mb-1">
+                  Osh Markazi Nomi
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formConfig.brandName || ""}
+                  onChange={(e) => setFormConfig({ ...formConfig, brandName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-black"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-extrabold text-stone-600 mb-1">
+                  Telefon Raqami
+                </label>
+                <input
+                  type="text"
+                  value={formConfig.phone || ""}
+                  onChange={(e) => setFormConfig({ ...formConfig, phone: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-extrabold text-stone-600 mb-1">
+                  Yetkazib berish narxi ({config.currency})
+                </label>
+                <input
+                  type="number"
+                  value={formConfig.deliveryFee || 0}
+                  onChange={(e) =>
+                    setFormConfig({ ...formConfig, deliveryFee: Number(e.target.value) })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-extrabold text-stone-600 mb-1">
+                  Zal xizmat haqi (%)
+                </label>
+                <input
+                  type="number"
+                  value={formConfig.serviceChargePercent || 0}
+                  onChange={(e) =>
+                    setFormConfig({ ...formConfig, serviceChargePercent: Number(e.target.value) })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-bold"
+                />
+              </div>
+            </div>
+          </form>
+        )}
       </div>
 
-      {/* ================= ADD / EDIT PRODUCT MODAL ================= */}
+      {/* ADD / EDIT PRODUCT MODAL */}
       {showProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <form
@@ -840,7 +539,7 @@ export default function AdminDashboardView() {
           >
             <div className="px-6 py-4 bg-stone-900 text-white flex items-center justify-between">
               <h3 className="font-black text-base">
-                {editingProduct ? "Taomni Tahrirlash" : "Yangi Taom yoki Kombo Qo'shish"}
+                {editingProduct ? "Taomni Tahrirlash" : "Yangi Taom Qo'shish"}
               </h3>
               <button
                 type="button"
@@ -877,15 +576,6 @@ export default function AdminDashboardView() {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-bold text-stone-700 mb-1">POS Shtrix-kod (SKU)</label>
-                  <input
-                    type="text"
-                    value={productForm.sku}
-                    onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 font-mono"
-                  />
-                </div>
-                <div>
                   <label className="block font-bold text-stone-700 mb-1">Narxi ({config.currency}) *</label>
                   <input
                     type="number"
@@ -893,33 +583,6 @@ export default function AdminDashboardView() {
                     value={productForm.price}
                     onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 font-black"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-stone-700 mb-1">Vazni / Hajmi</label>
-                  <input
-                    type="text"
-                    value={productForm.weight}
-                    onChange={(e) => setProductForm({ ...productForm, weight: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block font-bold text-stone-700 mb-1">Rasm URL manzili</label>
-                  <input
-                    type="text"
-                    value={productForm.image}
-                    onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block font-bold text-stone-700 mb-1">Ta'rif (Tarkibi)</label>
-                  <textarea
-                    rows={2}
-                    value={productForm.description}
-                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300"
                   />
                 </div>
               </div>

@@ -1,57 +1,52 @@
-# 🍛 Universal Osh Markazi & Feed-Up POS Ekotizimi (White-Label Restaurant Suite)
+# 🍛 ASL OSH MARKAZI — Web, Real POS, KDS, Navbat TV va Kiberxavfsizlik Tizimi
 
-Milliy Osh Markazlari va Fast-Casual (Feed Up uslubidagi) restoran tarmoqlari uchun mo'ljallangan **alohida Backend API Server** va **Zamonaviy Frontend Ekotizimi**.
-
----
-
-## 🌟 Asosiy Imkoniyatlar va Arxitektura
-
-Loyiha **5 ta o'zaro real-vaqtda (SSE - Server-Sent Events) bog'langan moduldan** iborat:
-
-1. **🌐 Mijozlar Sayti (Feed Up Style Web Ordering)**
-   - **Buyurtma rejimlari:** Yetkazib berish (Dastavka), Olib ketish (Self-Pickup), va Zaldan QR-Stol orqali buyurtma.
-   - **Qaynoq Hikoyalar (Stories) & Promokodlar:** `OSH20`, `FEEDUP`, `BESHQOZON` promokodlari va interaktiv aksiyalar.
-   - **Osh Konstruktori (Modifiers):** Porsiya hajmini tanlash (`0.7 porsiya`, `1 porsiya`, `1.5 porsiya`, `1 Kg Lagan`) va osh ustiga qo'shimchalar (`+Ot qazisi`, `+Pay`, `+Bedana tuxumi`, `+Double go'sht`, `+Achichuk`, `+Patir`).
-   - **Keshbek & Loyalty Bonus:** Har bir buyurtmadan 5% keshbek yig'ish va keyingi xaridda ishlatish.
-   - **Jonli Buyurtma Kuzatuvi:** Mijoz o'zining elektron navbat raqamini (`#A-106`) va oshning tayyorlanish bosqichlarini jonli kuzatadi.
-
-2. **🖥️ Professional POS Kassa Terminali (Real Working POS)**
-   - **Tezkor qidiruv:** Shtrix-kod / SKU (`PLV-001`, `CMB-001`) va kategoriyalar bo'yicha 1-bosishda urish.
-   - **Kanallar:** O'zi bilan (Kassa), Zal Stollari, Telefon Dastavka, Uzum Tezkor, Yandex Eats.
-   - **Interaktiv Zal Stollari Xaritasi:** Asosiy zal, Yozgi terassa va VIP xonalar bandligini boshqarish.
-   - **Kechiktirilgan Cheklar (Hold Order):** Navbatdagi mijozga xizmat ko'rsatish uchun chekni vaqtincha xotiraga olish va qayta tiklash.
-   - **To'lov & Qaytim Kalkulyatori:** Naqd pul (50k, 100k, 200k, 500k kupyuralar bilan avtomatik qaytim hisoblash), Uzcard/Humo, CLICK QR, Payme QR va Aralash to'lov.
-   - **80mm Fiskal Termal Chek Chop Etish:** Elektron navbat raqami va QR-kod bilan real printerga chiqarish (`window.print()`).
-
-3. **👨‍🍳 Oshxona Ekrani — KDS (Kitchen Display System)**
-   - Oshpaz va suzuvchilar uchun real-vaqt buyurtmalar taxtasi.
-   - Har bir taomni belgilab chiqish (checklist) va tayyor bo'lganda **1-bosishda Elektron Navbat TV ekraniga chiqarish**.
-
-4. **📺 Elektron Navbat TV Ekrani (Feed Up Queue Board)**
-   - Restoran zali uchun ikki ustunli katta TV tablo: **"TAYYORLANMOQDA..."** va **"TAYYOR! MARHAMAT OLING"**.
-   - Buyurtma tayyor bo'lganda **ovozli chaqiruv va qo'ng'iroq (Ding-Dong)** effekti.
-
-5. **⚙️ Universal Brend Konstruktori & Admin Panel (White-Label Engine)**
-   - **Brend nomini 1 soniyada o'zgartirish:** Istalgan Osh Markazi nomini, shiorini, logotip belgisini, asosiy rang palitrasini, dastavka va xizmat foizlarini kiritish yoki tayyor shablonlardan (*Besh Qozon*, *Osh UP*, *Samarqand Darvoza Osh*, *Xontaxta Plov*) birini tanlash mumkin.
-   - **Menyu va Stop-List CRUD:** Yangi taom/kombo qo'shish, narxlarni o'zgartirish va tugagan taomni 1-bosishda Stop-listga olish.
-   - **Moliya, Analitika va Z-Hisobot:** Tushum, o'rtacha chek, to'lov turlari kesimi, eng ko'p sotilgan taomlar va **Excel/CSV eksport**.
+Osh Markazi uchun mo'ljallangan **alohida Backend API Server** (`backend/`) va **Rollarga bo'lingan (RBAC) Frontend Ilova** (`frontend/`).
 
 ---
 
-## 🚀 Ishga Tushirish (Quick Start)
+## 🔐 Xodimlar Rollari va Login-Parollar (RBAC)
 
-### 1. Backend Serverni ishga tushirish (`http://localhost:4000`)
-```bash
-cd backend
-npm install
-npm start
-```
+Saytga kirilganda **default holatda faqat Mijozlar Bo'limi** (buyurtma berish sayti) ko'rinadi. Xodimlar esa o'ng yuqori burchakdagi **"🔒 Xodimlar kirishi"** tugmasi orqali o'z login va parollari bilan tizimga kiradilar:
 
-### 2. Frontend Ilovani ishga tushirish (`http://localhost:5173`)
-```bash
-cd frontend
-npm install
-npm run dev
-```
+| Rol / Lavozim | Login | Parol | Ruxsat etilgan bo'limlar |
+| :--- | :--- | :--- | :--- |
+| **🌐 Mijoz (Default)** | *Login shart emas* | — | Mijozlar Sayti (Menyu, Kombo, Savat, Jonli Navbat) |
+| **🖥️ Kassir (POS)** | `kassir` | `kassir123` | POS Kassa Terminali, Navbat TV Ekrani |
+| **👨‍🍳 Bosh Oshpaz (KDS)** | `oshpaz` | `oshpaz123` | Oshxona Ekrani (KDS), Navbat TV Ekrani |
+| **📺 Zal Ekrani** | `ekran` | `ekran123` | Elektron Navbat TV Ekrani |
+| **👔 Admin / Rahbar** | `admin` | `admin123` | Admin Panel (Menyu, Moliya), POS, KDS, Navbat TV, Kiberxavfsizlik |
+| **🛡️ Kiberxavfsizlik (SOC)** | `secadmin` | `sec12345` | Kiberxavfsizlik Markazi (WAF, Firewall, Audit Log), Admin |
 
-Yoki Windows'da `start-all.bat` faylini ikki marta bosing!
+---
+
+## 🌟 Asosiy Bo'limlar
+
+1. **🌐 Mijozlar Bo'limi (Default)**
+   - Yetkazib berish (Dastavka), Olib ketish va Zaldan QR-Stol buyurtmasi.
+   - Osh porsiyalari (`0.7`, `1`, `1.5`, `1 Kg Lagan`) va qo'shimchalar konstruktori (`+Qazi`, `+Pay`, `+Bedana tuxumi`, `+Double go'sht`).
+   - Promokodlar (`OSH20`, `FEEDUP`), 5% keshbek bonus va jonli navbat kuzatuvi.
+2. **🖥️ Real POS Kassa Terminali**
+   - Shtrix-kod/SKU qidiruv, Zal stollari xaritasi, Kechiktirilgan cheklar (*Hold*), Naqd pul qaytim kalkulyatori va **Soddalashtirilgan 80mm Kassa Cheki** (`SHA-256` imzosi bilan).
+3. **👨‍🍳 Oshxona Ekrani (KDS)**
+   - Oshpazlar uchun real-vaqt buyurtmalar taxtasi va tayyor taomni 1-bosishda Navbat TV ekraniga chiqarish.
+4. **📺 Elektron Navbat TV Ekrani**
+   - *"Tayyorlanmoqda"* va *"Tayyor! Marhamat oling"* ikki ustunli tablo va ovozli chaqiruv.
+5. **🛡️ Kiberxavfsizlik Markazi (SOC & WAF)**
+   - **WAF (Web Application Firewall):** SQL-Injection va XSS hujumlarini avtomatik tutish va bloklash.
+   - **Brute-Force & Rate-Limiting:** Ketma-ket xato parol terilganda bloklash.
+   - **SHA-256 Fiskal Imzo:** Har bir chekning o'zgartirilmaganligini kriptografik tasdiqlash.
+   - **IP Firewall & Jonli SIEM Audit Log:** Shubhali IP manzillarni bloklash va hujum simulyatori.
+
+---
+
+## 🚀 Ishga Tushirish
+
+1. `start-all.bat` faylini ikki marta bosing, yoki:
+2. Backend (`http://localhost:4000`):
+   ```bash
+   cd backend && npm install && npm start
+   ```
+3. Frontend (`http://localhost:5173`):
+   ```bash
+   cd frontend && npm install && npm run dev
+   ```
