@@ -2,6 +2,8 @@ node_modules/
 backend/node_modules/
 frontend/node_modules/
 frontend/dist/
+.pos-desktop-profile/
+backend/data/last_receipt.txt
 .env
 *.log
 .DS_Store

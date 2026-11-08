@@ -20,8 +20,34 @@
     "cashbackPercent": 5,
     "queuePrefix": "A",
     "receiptHeader": "Xush kelibsiz! Yoqimli ishtaha tilaymiz!",
-    "receiptFooter": "Xaridingiz uchun rahmat! Har bir buyurtmadan 5% keshbek yig'iladi.",
+    "receiptFooter": "Soliq.uz ilovasi orqali QR-kodni skanerlang va 1% keshbek oling!",
     "activeBranchId": "branch-1"
+  },
+  "soliqConfig": {
+    "enabled": true,
+    "mode": "PRODUCTION_OFD",
+    "companyName": "\"ASL OSH MARKAZI\" MCHJ",
+    "stir": "309841205",
+    "terminalId": "LG4202600819",
+    "cashboxNumber": "NKM-8800412",
+    "vatPercent": 12,
+    "soliqCashbackPercent": 1,
+    "apiKey": "soliq_live_98f4a2d7c1e64b8091a5d3f7e2b904c1",
+    "secretKey": "ofd_sec_77a1b3c9d4e5f608123456789abcdef0",
+    "ofdEndpoint": "https://ofd.soliq.uz/api/v1/fiscal",
+    "webhookUrl": "http://localhost:4000/api/soliq/webhook",
+    "autoFiscalize": true,
+    "lastSyncAt": "2026-11-08T13:28:36.773Z"
+  },
+  "printerConfig": {
+    "paperWidth": "80mm",
+    "autoPrintOnPosPay": true,
+    "printMethod": "zero_margin_iframe",
+    "selectedPrinter": "Default POS Thermal Printer (80mm)",
+    "copies": 1,
+    "cutPaper": true,
+    "openCashDrawer": true,
+    "fontSize": "normal"
   },
   "staffAccounts": [
     {
@@ -33,7 +59,8 @@
       "fullName": "Dilshod Rahimov",
       "allowedModules": [
         "pos",
-        "queue"
+        "queue",
+        "soliq"
       ],
       "status": "active",
       "avatar": "🖥️"
@@ -66,6 +93,20 @@
       "avatar": "📺"
     },
     {
+      "id": "usr-soliq",
+      "username": "soliq",
+      "password": "soliq123",
+      "role": "accountant",
+      "roleLabel": "Soliq & Fiskal API (Buxgalter)",
+      "fullName": "Bosh Hisobchi (OFD/MXIK)",
+      "allowedModules": [
+        "soliq",
+        "admin"
+      ],
+      "status": "active",
+      "avatar": "🏛️"
+    },
+    {
       "id": "usr-admin",
       "username": "admin",
       "password": "admin123",
@@ -77,6 +118,7 @@
         "pos",
         "kds",
         "queue",
+        "soliq",
         "security"
       ],
       "status": "active",
@@ -91,6 +133,7 @@
       "fullName": "Axborot Xavfsizligi Bo'limi",
       "allowedModules": [
         "security",
+        "soliq",
         "admin",
         "pos",
         "kds",
@@ -150,7 +193,7 @@
       "badge": "YANGI QOZON ✨",
       "image": "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=800&q=80",
       "description": "Sariq sabzi, no'xat, mayiz va barra go'shtdan qat-qat qilib suziladigan haqiqiy Samarqand oshi.",
-      "promoCode": "ASLOSH"
+      "promoCode": "OSH20"
     }
   ],
   "categories": [
@@ -195,6 +238,9 @@
     {
       "id": "prod-combo-1",
       "sku": "CMB-001",
+      "mxikCode": "10705001002000000",
+      "packageCode": "12002",
+      "vatPercent": 12,
       "categoryId": "combos",
       "name": "Asl Osh Solo Kombo #1",
       "description": "1 porsiya To'y oshi + Qazi + Achichuk salat + Yarimta patir + Coca-Cola 0.5L yoki Choy.",
@@ -262,6 +308,9 @@
     {
       "id": "prod-combo-2",
       "sku": "CMB-002",
+      "mxikCode": "10705001002000000",
+      "packageCode": "12002",
+      "vatPercent": 12,
       "categoryId": "combos",
       "name": "Juftlik Kombo (2 kishilik)",
       "description": "2 porsiya Osh + 2 bo'lak Qazi + 4 ta Bedana tuxumi + Achichuk + Suzma + Butun Patir + 1L Kompot.",
@@ -323,6 +372,9 @@
     {
       "id": "prod-plov-1",
       "sku": "PLV-001",
+      "mxikCode": "10705001001000000",
+      "packageCode": "12001",
+      "vatPercent": 12,
       "categoryId": "plov",
       "name": "Toshkent To'y Oshi (Maxsus)",
       "description": "Lazer guruchi, sariq va qizil sabzi, no'xat, mayiz, yumshoq mol va qo'y go'shti bilan damlangan to'y oshi.",
@@ -395,6 +447,9 @@
     {
       "id": "prod-plov-2",
       "sku": "PLV-002",
+      "mxikCode": "10705001001000000",
+      "packageCode": "12001",
+      "vatPercent": 12,
       "categoryId": "plov",
       "name": "Choyxona Palovi (Qovurma)",
       "description": "Qo'y dumba yog'i va dog'langan yog'da qovurilgan to'q rangli xushbo'y choyxona oshi.",
@@ -467,6 +522,9 @@
     {
       "id": "prod-plov-3",
       "sku": "PLV-003",
+      "mxikCode": "10705001001000000",
+      "packageCode": "12001",
+      "vatPercent": 12,
       "categoryId": "plov",
       "name": "Samarqand Zig'ir Oshi",
       "description": "100% tabiiy zig'ir yog'i, sariq sabzi va barra go'shtdan aralashtirilmay suziladigan Samarqand oshi.",
@@ -538,6 +596,9 @@
     {
       "id": "prod-add-1",
       "sku": "ADD-001",
+      "mxikCode": "01602001001000000",
+      "packageCode": "12001",
+      "vatPercent": 12,
       "categoryId": "addons",
       "name": "Ot Qazisi (3 bo'lak)",
       "description": "Dudlangan va qozonda pishirilgan oliy navli ot qazisi.",
@@ -552,6 +613,9 @@
     {
       "id": "prod-sal-1",
       "sku": "SAL-001",
+      "mxikCode": "10704001001000000",
+      "packageCode": "12001",
+      "vatPercent": 12,
       "categoryId": "salads",
       "name": "Achichuk Salat (Shakarob)",
       "description": "Yupqa to'g'ralgan shirin pomidor, piyoz, rayhon va qalampir.",
@@ -566,6 +630,9 @@
     {
       "id": "prod-brd-1",
       "sku": "BRD-001",
+      "mxikCode": "01905001001000000",
+      "packageCode": "12003",
+      "vatPercent": 12,
       "categoryId": "bread_somsa",
       "name": "Tandir Go'shtli Somsa",
       "description": "Qarsildoq qatlama xamir ichida barra qo'y go'shti.",
@@ -580,6 +647,9 @@
     {
       "id": "prod-brd-2",
       "sku": "BRD-002",
+      "mxikCode": "01905001001000000",
+      "packageCode": "12003",
+      "vatPercent": 12,
       "categoryId": "bread_somsa",
       "name": "Kunjutli Patir Non",
       "description": "Sut va sariyog'da yopilgan tandir patir.",
@@ -594,6 +664,9 @@
     {
       "id": "prod-drk-1",
       "sku": "DRK-001",
+      "mxikCode": "02202001001000000",
+      "packageCode": "12004",
+      "vatPercent": 12,
       "categoryId": "drinks",
       "name": "Toshkent Limonli Choyi",
       "description": "Novvot va yangi limon bilan damlangan xushbo'y choy.",
@@ -666,6 +739,7 @@
     {
       "id": "ord-101",
       "queueNumber": "A-101",
+      "receiptSeq": 1001,
       "source": "pos",
       "orderType": "dine_in",
       "tableId": "t-5",
@@ -675,12 +749,13 @@
       "status": "ready",
       "paymentStatus": "paid",
       "paymentMethod": "click",
-      "createdAt": "2026-11-07T19:21:59.609Z",
+      "createdAt": "2026-11-08T13:14:36.773Z",
       "cashierName": "Dilshod Kassir",
       "items": [
         {
           "id": "item-1",
           "productId": "prod-combo-1",
+          "mxikCode": "10705001002000000",
           "name": "Asl Osh Solo Kombo #1",
           "variantName": "Standart (Coca-Cola 0.5L)",
           "modifiers": [],
@@ -695,11 +770,18 @@
       "serviceFee": 11800,
       "deliveryFee": 0,
       "total": 129800,
-      "fiscalHash": "8C84AE01281A"
+      "vatAmount": 13907,
+      "soliqCashback": 1298,
+      "fiscalSign": "849201746381",
+      "terminalId": "LG4202600819",
+      "ofdStatus": "SENT_OK",
+      "fiscalHash": "B57CD4C2DF44",
+      "qrCodeUrl": "https://ofd.soliq.uz/check?t=LG4202600819&r=1001&c=20261108131436&s=849201746381&a=129800"
     },
     {
       "id": "ord-102",
       "queueNumber": "A-102",
+      "receiptSeq": 1002,
       "source": "web",
       "orderType": "delivery",
       "tableId": null,
@@ -710,12 +792,13 @@
       "status": "cooking",
       "paymentStatus": "paid",
       "paymentMethod": "payme",
-      "createdAt": "2026-11-07T19:27:59.609Z",
+      "createdAt": "2026-11-08T13:20:36.773Z",
       "cashierName": "Online Sayt",
       "items": [
         {
           "id": "item-3",
           "productId": "prod-plov-1",
+          "mxikCode": "10705001001000000",
           "name": "Toshkent To'y Oshi (Maxsus)",
           "variantName": "1 Porsiya (Standart)",
           "modifiers": [
@@ -735,42 +818,39 @@
       "serviceFee": 0,
       "deliveryFee": 15000,
       "total": 119000,
-      "fiscalHash": "302F57E8095E"
+      "vatAmount": 12750,
+      "soliqCashback": 1190,
+      "fiscalSign": "938105624190",
+      "terminalId": "LG4202600819",
+      "ofdStatus": "SENT_OK",
+      "fiscalHash": "3CBF772F1333",
+      "qrCodeUrl": "https://ofd.soliq.uz/check?t=LG4202600819&r=1002&c=20261108132036&s=938105624190&a=119000"
     }
   ],
   "shift": {
     "isOpen": true,
-    "openedAt": "2026-11-07T15:35:59.609Z",
+    "openedAt": "2026-11-08T09:28:36.773Z",
     "cashierName": "Dilshod Rahimov (Kassa #1)",
     "startingCash": 500000
   },
   "securityLogs": [
     {
       "id": "sec-log-1",
-      "timestamp": "2026-11-07T19:00:59.609Z",
+      "timestamp": "2026-11-08T12:53:36.773Z",
       "event": "SYSTEM_BOOT",
       "severity": "info",
       "actor": "system",
       "ip": "127.0.0.1",
-      "details": "Universal Asl Osh Markazi tizimi xavfsiz muhitda ishga tushirildi."
+      "details": "Asl Osh Markazi POS, Soliq OFD API va Kiberxavfsizlik tizimi ishga tushirildi."
     },
     {
       "id": "sec-log-2",
-      "timestamp": "2026-11-07T19:15:59.609Z",
-      "event": "AUTH_SUCCESS",
+      "timestamp": "2026-11-08T13:08:36.773Z",
+      "event": "SOLIQ_OFD_SYNC",
       "severity": "success",
-      "actor": "kassir",
-      "ip": "192.168.1.104",
-      "details": "Kassir Dilshod Rahimov POS terminalga muvaffaqiyatli kirdi."
-    },
-    {
-      "id": "sec-log-3",
-      "timestamp": "2026-11-07T19:23:59.609Z",
-      "event": "RATE_LIMIT_CHECK",
-      "severity": "info",
-      "actor": "guest",
-      "ip": "144.124.196.69",
-      "details": "DDoS va Brute-Force tekshiruvi: 0 ta shubhali so'rov aniqlandi."
+      "actor": "OFD-Agent",
+      "ip": "127.0.0.1",
+      "details": "Soliq.uz OFD fiskal moduli (LG4202600819) bilan aloqa o'rnatildi."
     }
   ],
   "securitySettings": {
@@ -784,7 +864,7 @@
     "185.220.101.44",
     "45.155.205.233"
   ],
-  "activeSessions": [],
   "statsBlockedAttacks": 14,
-  "queueCounter": 103
+  "queueCounter": 103,
+  "receiptSeqCounter": 1003
 }

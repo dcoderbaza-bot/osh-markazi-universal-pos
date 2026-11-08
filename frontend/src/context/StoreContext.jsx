@@ -13,7 +13,7 @@ const FALLBACK_ROLES = [
     role: "cashier",
     roleLabel: "Kassir (POS Operator)",
     fullName: "Dilshod Rahimov",
-    allowedModules: ["pos", "queue"],
+    allowedModules: ["pos", "queue", "soliq"],
     avatar: "🖥️"
   },
   {
@@ -37,13 +37,23 @@ const FALLBACK_ROLES = [
     avatar: "📺"
   },
   {
+    id: "usr-soliq",
+    username: "soliq",
+    passwordHint: "soliq123",
+    role: "accountant",
+    roleLabel: "Soliq & Fiskal API (Buxgalter)",
+    fullName: "Bosh Hisobchi (OFD/MXIK)",
+    allowedModules: ["soliq", "admin"],
+    avatar: "🏛️"
+  },
+  {
     id: "usr-admin",
     username: "admin",
     passwordHint: "admin123",
     role: "admin",
     roleLabel: "Boshqaruvchi / Admin",
     fullName: "Sanjarbek Rahbar",
-    allowedModules: ["admin", "pos", "kds", "queue", "security"],
+    allowedModules: ["admin", "pos", "kds", "queue", "soliq", "security"],
     avatar: "👔"
   },
   {
@@ -53,7 +63,7 @@ const FALLBACK_ROLES = [
     role: "security",
     roleLabel: "Kiberxavfsizlik (SOC)",
     fullName: "Axborot Xavfsizligi Bo'limi",
-    allowedModules: ["security", "admin", "pos", "kds", "queue"],
+    allowedModules: ["security", "soliq", "admin", "pos", "kds", "queue"],
     avatar: "🛡️"
   }
 ];
@@ -76,7 +86,33 @@ export function StoreProvider({ children }) {
     cashbackPercent: 5,
     queuePrefix: "A",
     receiptHeader: "Xush kelibsiz! Yoqimli ishtaha tilaymiz!",
-    receiptFooter: "Xaridingiz uchun rahmat!"
+    receiptFooter: "Soliq.uz ilovasi orqali QR-kodni skanerlang va 1% keshbek oling!"
+  });
+
+  const [soliqConfig, setSoliqConfig] = useState({
+    enabled: true,
+    mode: "PRODUCTION_OFD",
+    companyName: '"ASL OSH MARKAZI" MCHJ',
+    stir: "309841205",
+    terminalId: "LG4202600819",
+    cashboxNumber: "NKM-8800412",
+    vatPercent: 12,
+    soliqCashbackPercent: 1,
+    apiKey: "soliq_live_98f4a2d7c1e64b8091a5d3f7e2b904c1",
+    secretKey: "ofd_sec_77a1b3c9d4e5f608123456789abcdef0",
+    ofdEndpoint: "https://ofd.soliq.uz/api/v1/fiscal",
+    webhookUrl: "http://localhost:4000/api/soliq/webhook",
+    autoFiscalize: true
+  });
+
+  const [printerConfig, setPrinterConfig] = useState({
+    paperWidth: "80mm",
+    autoPrintOnPosPay: true,
+    printMethod: "zero_margin_iframe",
+    selectedPrinter: "Default POS Thermal Printer (80mm)",
+    copies: 1,
+    cutPaper: true,
+    openCashDrawer: true
   });
 
   const [branches, setBranches] = useState([]);
@@ -92,7 +128,6 @@ export function StoreProvider({ children }) {
     startingCash: 500000
   });
 
-  // RBAC Auth & Cybersecurity State
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = sessionStorage.getItem("osh_staff_session");
@@ -144,6 +179,8 @@ export function StoreProvider({ children }) {
       if (!res.ok) throw new Error("Server javob bermadi");
       const data = await res.json();
       if (data.config) setConfig(data.config);
+      if (data.soliqConfig) setSoliqConfig(data.soliqConfig);
+      if (data.printerConfig) setPrinterConfig(data.printerConfig);
       if (data.branches) setBranches(data.branches);
       if (data.stories) setStories(data.stories);
       if (data.categories) setCategories(data.categories);
@@ -182,6 +219,12 @@ export function StoreProvider({ children }) {
             switch (msg.type) {
               case "CONFIG_UPDATED":
                 setConfig(msg.payload);
+                break;
+              case "SOLIQ_UPDATED":
+                setSoliqConfig(msg.payload);
+                break;
+              case "PRINTER_UPDATED":
+                setPrinterConfig(msg.payload);
                 break;
               case "PRODUCTS_UPDATED":
                 setProducts(msg.payload);
@@ -265,7 +308,6 @@ export function StoreProvider({ children }) {
       showToast(`Xush kelibsiz, ${data.user.fullName} (${data.user.roleLabel})!`);
       return { success: true, user: data.user };
     } catch {
-      // Fallback local check if offline
       const found = FALLBACK_ROLES.find(
         (r) => r.username === username.trim().toLowerCase() && r.passwordHint === password
       );
@@ -297,6 +339,54 @@ export function StoreProvider({ children }) {
     sessionStorage.removeItem("osh_staff_session");
     sound.playPosTap();
     showToast("Xodim tizimidan chiqdingiz (Mijozlar rejimiga qaytildi)");
+  };
+
+  // Soliq & Printer Actions
+  const updateSoliqConfig = async (newCfg) => {
+    try {
+      const res = await fetch(`${API_BASE}/soliq/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCfg)
+      });
+      const updated = await res.json();
+      setSoliqConfig(updated);
+      showToast("Soliq OFD sozlamalari saqlandi!");
+      return updated;
+    } catch {
+      setSoliqConfig((prev) => ({ ...prev, ...newCfg }));
+      showToast("Lokal saqlandi");
+    }
+  };
+
+  const generateNewSoliqKey = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/soliq/generate-key`, { method: "POST" });
+      const data = await res.json();
+      if (data.soliqConfig) setSoliqConfig(data.soliqConfig);
+      sound.playCashRegister();
+      showToast("Yangi Soliq API Key muvaffaqiyatli yaratildi!");
+      return data;
+    } catch {
+      showToast("Xatolik", "error");
+    }
+  };
+
+  const updatePrinterConfig = async (newCfg) => {
+    try {
+      const res = await fetch(`${API_BASE}/printer/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCfg)
+      });
+      const updated = await res.json();
+      setPrinterConfig(updated);
+      sound.playPosTap();
+      showToast("Printer sozlamalari yangilandi!");
+      return updated;
+    } catch {
+      setPrinterConfig((prev) => ({ ...prev, ...newCfg }));
+    }
   };
 
   // Cybersecurity Actions
@@ -406,6 +496,7 @@ export function StoreProvider({ children }) {
         queueNumber: `A-${100 + orders.length + 1}`,
         createdAt: new Date().toISOString(),
         status: orderPayload.source === "pos" ? "cooking" : "new",
+        fiscalSign: "849201746381",
         fiscalHash: "SHA256-LOCAL",
         ...orderPayload
       };
@@ -530,6 +621,8 @@ export function StoreProvider({ children }) {
     <StoreContext.Provider
       value={{
         config,
+        soliqConfig,
+        printerConfig,
         branches,
         stories,
         categories,
@@ -551,6 +644,9 @@ export function StoreProvider({ children }) {
         showToast,
         loginStaff,
         logoutStaff,
+        updateSoliqConfig,
+        generateNewSoliqKey,
+        updatePrinterConfig,
         toggleSecuritySetting,
         blockIp,
         unblockIp,

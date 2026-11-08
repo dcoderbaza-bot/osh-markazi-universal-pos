@@ -6,6 +6,7 @@ import {
   Tv,
   Settings,
   ShieldCheck,
+  Landmark,
   Lock,
   LogOut,
   Volume2,
@@ -20,6 +21,7 @@ import KitchenKdsView from "./components/KitchenKdsView";
 import QueueTvView from "./components/QueueTvView";
 import AdminDashboardView from "./components/AdminDashboardView";
 import CyberSecurityView from "./components/CyberSecurityView";
+import SoliqApiView from "./components/SoliqApiView";
 import LoginModal from "./components/LoginModal";
 import { sound } from "./utils/sound";
 
@@ -55,11 +57,11 @@ function EcosystemApp() {
       icon: Tv,
       badge: readyQueueCount > 0 ? readyQueueCount : null
     },
+    { id: "soliq", label: "Soliq API & Printer", icon: Landmark, badge: "OFD" },
     { id: "admin", label: "Admin Panel", icon: Settings, badge: null },
     { id: "security", label: "Kiberxavfsizlik", icon: ShieldCheck, badge: "SOC" }
   ];
 
-  // Filter modules based on logged-in role
   const permittedModules = currentUser
     ? allStaffModules.filter((m) => (currentUser.allowedModules || []).includes(m.id))
     : [];
@@ -87,9 +89,9 @@ function EcosystemApp() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50">
-      {/* Top Header */}
-      <header className="h-14 bg-stone-950 text-white border-b border-stone-800 sticky top-0 z-40 px-4 flex items-center justify-between gap-3">
+    <div className="min-h-dvh flex flex-col bg-stone-50">
+      {/* Top Header (Responsive across Mobile, Tablet, POS & Desktop) */}
+      <header className="min-h-14 bg-stone-950 text-white border-b border-stone-800 sticky top-0 z-40 px-3 sm:px-5 py-2 flex flex-wrap items-center justify-between gap-2">
         {/* Left: Single Brand Identity */}
         <div
           onClick={() => setActiveModule("web")}
@@ -97,33 +99,33 @@ function EcosystemApp() {
         >
           <span
             style={{ backgroundColor: config.themeColor }}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-base sm:text-lg shadow"
           >
             {config.logoEmoji || "🍛"}
           </span>
           <div>
-            <div className="font-black text-sm tracking-tight leading-none text-white group-hover:text-amber-400 transition">
+            <div className="font-black text-xs sm:text-sm tracking-tight leading-none text-white group-hover:text-amber-400 transition">
               {config.brandName}
             </div>
-            <div className="text-[10px] text-stone-400">{config.brandSubtitle}</div>
+            <div className="text-[10px] text-stone-400 hidden xs:block">{config.brandSubtitle}</div>
           </div>
         </div>
 
-        {/* Center: Only visible if a staff member is logged in! Default is pure Customer mode */}
+        {/* Center Navigation (Only visible when staff is logged in) */}
         {currentUser ? (
-          <nav className="flex items-center gap-1 bg-stone-900 p-1 rounded-xl border border-stone-800 overflow-x-auto">
+          <nav className="order-3 lg:order-2 w-full lg:w-auto flex items-center gap-1 bg-stone-900 p-1 rounded-xl border border-stone-800 overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveModule("web")}
               style={activeModule === "web" ? { backgroundColor: config.themeColor } : {}}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
                 activeModule === "web"
                   ? "text-white shadow-sm"
                   : "text-stone-400 hover:text-white hover:bg-stone-800"
               }`}
             >
-              <Globe className="w-3.5 h-3.5" />
-              <span>Mijozlar Bo'limi</span>
+              <Globe className="w-3.5 h-3.5 shrink-0" />
+              <span>Mijozlar</span>
             </button>
 
             {permittedModules.map((item) => {
@@ -138,7 +140,7 @@ function EcosystemApp() {
                     setActiveModule(item.id);
                   }}
                   style={active ? { backgroundColor: config.themeColor } : {}}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
                     active
                       ? "text-white shadow-sm"
                       : "text-stone-400 hover:text-white hover:bg-stone-800"
@@ -171,7 +173,7 @@ function EcosystemApp() {
         )}
 
         {/* Right: Staff Login / Active Role Badge */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="order-2 lg:order-3 flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={toggleAudio}
@@ -186,7 +188,7 @@ function EcosystemApp() {
           </button>
 
           {currentUser ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-900 border border-stone-700 text-xs">
                 <span>{currentUser.avatar}</span>
                 <span className="font-bold text-amber-400">{currentUser.roleLabel}</span>
@@ -194,17 +196,17 @@ function EcosystemApp() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-600/40 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-600/40 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span>Chiqish</span>
+                <span className="hidden xs:inline">Chiqish</span>
               </button>
             </div>
           ) : (
             <button
               type="button"
               onClick={() => setShowLoginModal(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 border border-stone-700 text-stone-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 border border-stone-700 text-stone-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
             >
               <Lock className="w-3.5 h-3.5 text-amber-400" />
               <span>Xodimlar kirishi</span>
@@ -213,17 +215,17 @@ function EcosystemApp() {
         </div>
       </header>
 
-      {/* Active View Body (Default is CustomerWebView) */}
+      {/* Active View Body */}
       <main className="flex-1">
         {activeModule === "web" && <CustomerWebView onNavigateModule={handleNavigateModule} />}
         {activeModule === "pos" && currentUser && <PosTerminalView />}
         {activeModule === "kds" && currentUser && <KitchenKdsView />}
         {activeModule === "queue" && currentUser && <QueueTvView />}
+        {activeModule === "soliq" && currentUser && <SoliqApiView />}
         {activeModule === "admin" && currentUser && <AdminDashboardView />}
         {activeModule === "security" && currentUser && <CyberSecurityView />}
       </main>
 
-      {/* Login Modal */}
       {showLoginModal && (
         <LoginModal
           onClose={() => setShowLoginModal(false)}
@@ -231,7 +233,6 @@ function EcosystemApp() {
         />
       )}
 
-      {/* Global Toast */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 bg-stone-950 text-white border border-stone-700 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
