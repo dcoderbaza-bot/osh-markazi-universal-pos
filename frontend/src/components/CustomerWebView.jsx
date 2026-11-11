@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ShoppingBag,
   MapPin,
@@ -15,17 +15,171 @@ import {
   Store,
   Utensils,
   Gift,
-  Tag,
   ChevronRight,
   X,
   Receipt,
-  Copy,
-  Navigation
+  Users,
+  Calculator,
+  ChefHat,
+  Award,
+  Calendar,
+  Navigation,
+  Thermometer,
+  Timer,
+  Check,
+  ShieldCheck
 } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import { formatMoney, sound } from "../utils/sound";
 import ProductModifierModal from "./ProductModifierModal";
 import ReceiptModal from "./ReceiptModal";
+
+const INITIAL_KAZANS = [
+  {
+    id: "kazan-1",
+    number: "1-Qozon",
+    title: "Toshkent To'y Oshi",
+    productId: "prod-plov-1",
+    status: "ready",
+    statusText: "Tayyor — 45 porsiya qoldi",
+    portionsLeft: 45,
+    maxPortions: 80,
+    etaSeconds: 0,
+    chef: "Usta Jamshid Oshpaz",
+    temp: "94°C",
+    highlightColor: "#D4AF37"
+  },
+  {
+    id: "kazan-2",
+    number: "2-Qozon",
+    title: "Choyxona Oshi (Qovurma)",
+    productId: "prod-plov-2",
+    status: "steaming",
+    statusText: "20 daqiqada suziladi",
+    portionsLeft: 65,
+    maxPortions: 65,
+    etaSeconds: 20 * 60,
+    chef: "Usta Mahmud Oshpaz",
+    temp: "98°C",
+    highlightColor: "#C85A32"
+  },
+  {
+    id: "kazan-3",
+    number: "3-Qozon",
+    title: "Andijon Devzira Oshi",
+    productId: "prod-plov-4",
+    status: "ready",
+    statusText: "Tayyor — 32 porsiya qoldi",
+    portionsLeft: 32,
+    maxPortions: 60,
+    etaSeconds: 0,
+    chef: "Usta Abdulla Oshpaz",
+    temp: "92°C",
+    highlightColor: "#008B8B"
+  },
+  {
+    id: "kazan-4",
+    number: "4-Qozon",
+    title: "Samarqandcha Zig'ir Oshi",
+    productId: "prod-plov-3",
+    status: "steaming",
+    statusText: "14 daqiqada suziladi",
+    portionsLeft: 50,
+    maxPortions: 50,
+    etaSeconds: 14 * 60,
+    chef: "Usta Anvar Samarqandiy",
+    temp: "96°C",
+    highlightColor: "#D4AF37"
+  }
+];
+
+const SCROLLYTELLING_STEPS = [
+  {
+    id: "step-1",
+    stepNum: "01",
+    title: "Cho'yan Qozon va Dog'langan Yog'",
+    subtitle: "210°C harorat va tabiiy dumba hamda zig'ir yog'i",
+    duration: "05:30 — 06:15",
+    temp: "210°C",
+    badge: "1-BOSQICH • OLOV VA QOZON",
+    description:
+      "Asrlar davomida sinalgan 120 kilogrammlik quyma cho'yan qozon o'rik va tut o'tinida qizdiriladi. Qo'y dumba yog'i hamda 100% tabiiy zig'ir yog'i ko'kimtir tutun chiqqunga qadar dog'lanadi — bu oshning xushbo'y va yengil hazm bo'lishining ilk siridir.",
+    secret: "Oshpaz siri: Yog'ga bir bosh archilgan piyoz va suyak tashlab qizartirilsa, yog'ning barcha taxirligi yo'qolib, oltin tusga kiradi.",
+    image: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "step-2",
+    stepNum: "02",
+    title: "Oltin Zirvak Qovurilishi",
+    subtitle: "Barra qo'y go'shti, sariq sabzi va tog' zirasi uyg'unligi",
+    duration: "06:15 — 07:30",
+    temp: "145°C",
+    badge: "2-BOSQICH • ZIRVAK SAN'ATI",
+    description:
+      "Katta bo'laklarda kesilgan barra qo'y va mol go'shti qizarguncha qovuriladi, so'ngra qo'lda somoncha to'g'ralgan shirin sariq sabzi, Surxondaryo tog' zirasi, zirk, shirin mayiz va oldindan ivitilgan Halima no'xat qo'shilib, past olovda 75 daqiqa miltillatib qaynatiladi.",
+    secret: "Oshpaz siri: Zirvak qaynayotganda qozon o'rtasiga butun sarimsoq boshlari va achchiq qalampir qo'yiladi — ular yorilib ketmasligi shart.",
+    image: "https://images.unsplash.com/photo-1596797038530-2c107229654b?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "step-3",
+    stepNum: "03",
+    title: "Lazer va Devzira Guruchi Damlanishi",
+    subtitle: "Har bir guruch donasi marjondek dona-dona bo'lib pishadi",
+    duration: "07:30 — 08:30",
+    temp: "96°C",
+    badge: "3-BOSQICH • MARJON GURUCH",
+    description:
+      "Iliq tuzli suvda 40 daqiqa ivitilgan Xorazm «Oltin Lazer» yoki 3 yillik «Uzgen Devzira» guruchi zirvak ustiga tekis qatlam qilib solinadi. Kapgir bilan faqat ustki qatlam ohista aylantirilib, guruch zirvak sharbatini to'liq shimib olgach, gumbaz shaklida yig'iladi va mis tog'ora bilan 45 daqiqa damga qo'yiladi.",
+    secret: "Oshpaz siri: Dam berishdan oldin gumbazning 4 nuqtasidan cho'mich dastasi bilan tuynuk ochiladi — shunda bug' guruchni bir tekis pishiradi.",
+    image: "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "step-4",
+    stepNum: "04",
+    title: "Rishton Sopol Laganida Shohona Tortiq",
+    subtitle: "Ot qazisi, kovatok do'lma va bedana tuxumi bilan bezatiladi",
+    duration: "Issiq holda — 25 daqiqada",
+    temp: "88°C",
+    badge: "4-BOSQICH • DASTURXON KO'RKI",
+    description:
+      "Damdan ochilgan qaynoq osh Rishton ustalarining feruza naqshli sopol laganiga yoki 3 soat issiqlik saqlovchi maxsus termos-idishga suziladi. Ustiga parrak qilib kesilgan ot qazisi, yumshoq pay, kovatok do'lma va bedana tuxumlari terilib, achichuk salat hamda tandir patiri bilan tortiq etiladi.",
+    secret: "Meros kafolati: Yetkazib berilganda oshingiz kamida 80°C issiq bo'lishiga 100% kafolat beramiz!",
+    image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=900&q=85"
+  }
+];
+
+const PACKAGING_OPTIONS = [
+  {
+    id: "sopol_lagan",
+    name: "Rishton Sopol Laganida",
+    subtitle: "Naqshinkor sopol lagan o'ramda (6+ porsiyada lagan sovg'a!)",
+    fee: 25000,
+    freeMinSubtotal: 220000,
+    icon: "🏺",
+    heatRetention: "90 daqiqa issiq",
+    badge: "SHOHONA TORTIQ 👑"
+  },
+  {
+    id: "termos_idish",
+    name: "Maxsus Germetik Termos-Idishda",
+    subtitle: "Zanglamas po'lat vakuumli termos — uzoq masofaga 90°C saqlaydi",
+    fee: 15000,
+    freeMinSubtotal: 160000,
+    icon: "🔥",
+    heatRetention: "180 daqiqa qaynoq",
+    badge: "3 SOAT ISSIQ 🌡️"
+  },
+  {
+    id: "eco_box",
+    name: "Folga Qoplamali EKO-Idish",
+    subtitle: "Har bir porsiya alohida issiqlik saqlovchi kraft-bokslarda",
+    fee: 0,
+    freeMinSubtotal: 0,
+    icon: "🥡",
+    heatRetention: "45 daqiqa issiq",
+    badge: "BEPUL STANDART ✨"
+  }
+];
 
 export default function CustomerWebView({ onNavigateModule }) {
   const {
@@ -49,6 +203,61 @@ export default function CustomerWebView({ onNavigateModule }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [onlyPopular, setOnlyPopular] = useState(false);
 
+  // Packaging choice (Sopol laganda vs Termos-idishda vs Eco-box)
+  const [packagingType, setPackagingType] = useState("sopol_lagan");
+
+  // Live Kazan Tracker state with real-time ticking countdown
+  const [kazans, setKazans] = useState(INITIAL_KAZANS);
+  const [selectedKazanId, setSelectedKazanId] = useState("kazan-1");
+
+  // Hot Delivery Guarantee Countdown Timer (24:59)
+  const [deliveryTimerSec, setDeliveryTimerSec] = useState(24 * 60 + 45);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setKazans((prev) =>
+        prev.map((k) => {
+          if (k.status === "steaming" && k.etaSeconds > 0) {
+            const nextSec = k.etaSeconds - 1;
+            const mins = Math.max(1, Math.ceil(nextSec / 60));
+            return {
+              ...k,
+              etaSeconds: nextSec,
+              statusText: `${mins} daqiqada suziladi`
+            };
+          }
+          return k;
+        })
+      );
+      setDeliveryTimerSec((prev) => (prev > 60 ? prev - 1 : 25 * 60));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Aqlli "Osh Kalkulyatori" (Interactive Plov Builder) State
+  const [guestCount, setGuestCount] = useState(8);
+  const [calcPlovId, setCalcPlovId] = useState("prod-plov-1");
+  const [calcRichness, setCalcRichness] = useState("shohona"); // standart | shohona | choyxona
+
+  // Inline Toggle Modifiers per product card: { [productId]: ["mod-qazi", "mod-sarimsoq"] }
+  const [inlineToggles, setInlineToggles] = useState({
+    "prod-plov-1": ["mod-qazi", "mod-bedana"],
+    "prod-plov-4": ["mod-sarimsoq", "mod-qalampir"],
+    "prod-plov-3": ["mod-qazi", "mod-dolma"],
+    "prod-plov-2": ["mod-qazi", "mod-sarimsoq"]
+  });
+
+  // Scrollytelling active stage
+  const [activeStoryStep, setActiveStoryStep] = useState(0);
+
+  // Table / VIP Room Reservation Form State
+  const [bookingName, setBookingName] = useState("");
+  const [bookingPhone, setBookingPhone] = useState("+998 90 ");
+  const [bookingGuests, setBookingGuests] = useState(8);
+  const [bookingTime, setBookingTime] = useState("12:30 (Tushlik — Issiq Qozon)");
+  const [bookingZone, setBookingZone] = useState("VIP Xona «Registon» (12 o'rinli)");
+  const [bookingSuccess, setBookingSuccess] = useState(null);
+
   // Modals & Drawers
   const [modifierProduct, setModifierProduct] = useState(null);
   const [activeStory, setActiveStory] = useState(null);
@@ -60,14 +269,17 @@ export default function CustomerWebView({ onNavigateModule }) {
   const [cart, setCart] = useState([
     {
       cartItemId: "init-1",
-      productId: "prod-combo-1",
-      name: "OshUP Solo Kombo #1",
-      image: "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=800&q=80",
-      variantName: "Standart Kombo (Coca-Cola 0.5L bilan)",
-      modifiers: [{ id: "mod-qazi", name: "Qo'shimcha Qazi bo'lagi", price: 14000 }],
-      quantity: 1,
-      unitPrice: 73000,
-      totalPrice: 73000,
+      productId: "prod-plov-1",
+      name: "Toshkent To'y Oshi (Maxsus)",
+      image: "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=900&q=85",
+      variantName: "1 Porsiya (Standart)",
+      modifiers: [
+        { id: "mod-qazi", name: "Qazi (Ot qazisi)", price: 14000 },
+        { id: "mod-bedana", name: "Bedana tuxumi (2 dona)", price: 6000 }
+      ],
+      quantity: 2,
+      unitPrice: 58000,
+      totalPrice: 116000,
       note: ""
     }
   ]);
@@ -75,7 +287,7 @@ export default function CustomerWebView({ onNavigateModule }) {
   // Checkout State
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("+998 90 ");
-  const [deliveryAddress, setDeliveryAddress] = useState("Yunusobod tumani, 7-mavze, 14-uy");
+  const [deliveryAddress, setDeliveryAddress] = useState("Toshkent sh., Yunusobod 4-mavze, 18-uy");
   const [orderNote, setOrderNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("click");
   const [promoInput, setPromoInput] = useState("");
@@ -88,7 +300,12 @@ export default function CustomerWebView({ onNavigateModule }) {
     [branches, selectedBranchId]
   );
 
-  // Filtered Products
+  const plovProducts = useMemo(
+    () => products.filter((p) => p.categoryId === "plov"),
+    [products]
+  );
+
+  // Filtered Products for Menu Grid
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       if (activeCategory !== "all" && p.categoryId !== activeCategory) return false;
@@ -104,28 +321,74 @@ export default function CustomerWebView({ onNavigateModule }) {
     });
   }, [products, activeCategory, onlyPopular, searchQuery]);
 
-  // Upsell items (Salads & Drinks not yet in cart)
-  const upsellProducts = useMemo(() => {
-    const inCartIds = new Set(cart.map((c) => c.productId));
-    return products
-      .filter(
-        (p) =>
-          p.inStock &&
-          (p.categoryId === "salads" || p.categoryId === "drinks" || p.categoryId === "bread_somsa") &&
-          !inCartIds.has(p.id)
-      )
-      .slice(0, 4);
-  }, [products, cart]);
+  // Smart Plov Calculator (Aqlli "Osh Kalkulyatori") Computation
+  const plovCalculation = useMemo(() => {
+    const selectedPlov =
+      products.find((p) => p.id === calcPlovId) ||
+      products.find((p) => p.categoryId === "plov") ||
+      products[0];
+
+    const guests = Math.max(1, Number(guestCount) || 1);
+    const multiplier = calcRichness === "shohona" ? 1.15 : calcRichness === "choyxona" ? 1.25 : 1.0;
+
+    const portionsCount = guests;
+    const totalWeightKg = ((guests * 0.42 * multiplier)).toFixed(1);
+    const qaziPieces = calcRichness === "standart" ? guests : Math.ceil(guests * 1.5);
+    const qaziPlates = Math.max(1, Math.ceil(qaziPieces / 3)); // each plate has 3 slices
+    const bedanaEggs = guests * 2;
+    const bedanaPlates = Math.max(1, Math.ceil(bedanaEggs / 5));
+    const dolmaCount = calcRichness === "standart" ? 0 : guests * 2;
+    const dolmaPlates = dolmaCount > 0 ? Math.max(1, Math.ceil(dolmaCount / 5)) : 0;
+    const achichukCount = Math.max(1, Math.ceil(guests / 2));
+    const patirCount = Math.max(1, Math.ceil(guests / 3));
+    const teaPots = Math.max(1, Math.ceil(guests / 4));
+    const laganCount = Math.max(1, Math.ceil(guests / 4));
+
+    const plovUnitPrice = selectedPlov?.price || 38000;
+    const plovTotal = portionsCount * plovUnitPrice;
+    const qaziTotal = qaziPlates * 38000;
+    const bedanaTotal = bedanaPlates * 15000;
+    const dolmaTotal = dolmaPlates * 18000;
+    const achichukTotal = achichukCount * 14000;
+    const patirTotal = patirCount * 10000;
+    const teaTotal = teaPots * 10000;
+
+    const rawBundleTotal =
+      plovTotal + qaziTotal + bedanaTotal + dolmaTotal + achichukTotal + patirTotal + teaTotal;
+    const bundleDiscount = guests >= 4 ? Math.round(rawBundleTotal * 0.1) : 0;
+    const finalBundleTotal = rawBundleTotal - bundleDiscount;
+
+    return {
+      selectedPlov,
+      guests,
+      portionsCount,
+      totalWeightKg,
+      qaziPieces,
+      qaziPlates,
+      bedanaEggs,
+      bedanaPlates,
+      dolmaCount,
+      dolmaPlates,
+      achichukCount,
+      patirCount,
+      teaPots,
+      laganCount,
+      rawBundleTotal,
+      bundleDiscount,
+      finalBundleTotal,
+      perPersonPrice: Math.round(finalBundleTotal / guests)
+    };
+  }, [guestCount, calcPlovId, calcRichness, products]);
 
   // Add item to Cart
-  const handleAddToCart = (item) => {
+  const handleAddToCart = (item, silent = false) => {
     setCart((prev) => {
-      const modKey = (item.modifiers || []).map((m) => m.id).sort().join("|");
+      const modKey = (item.modifiers || []).map((m) => m.id || m.name).sort().join("|");
       const existingIdx = prev.findIndex(
         (c) =>
           c.productId === item.productId &&
           c.variantName === item.variantName &&
-          (c.modifiers || []).map((m) => m.id).sort().join("|") === modKey &&
+          (c.modifiers || []).map((m) => m.id || m.name).sort().join("|") === modKey &&
           c.note === item.note
       );
       if (existingIdx > -1) {
@@ -146,30 +409,177 @@ export default function CustomerWebView({ onNavigateModule }) {
         }
       ];
     });
-    showToast(`"${item.name}" savatga qo'shildi!`);
+    if (!silent) {
+      showToast(`"${item.name}" savatchaga qo'shildi!`);
+    }
   };
 
-  const handleProductClick = (product) => {
+  // One-click Add entire Plov Calculator Bundle to Cart
+  const handleAddCalculatedPlovBundle = () => {
+    sound.playCashRegister();
+    const c = plovCalculation;
+    if (!c.selectedPlov) return;
+
+    // 1. Add Plov portions
+    handleAddToCart(
+      {
+        productId: c.selectedPlov.id,
+        name: `${c.selectedPlov.name} (${c.guests} kishilik ${c.laganCount} ta Lagan)`,
+        image: c.selectedPlov.image,
+        variantName: `${c.totalWeightKg} kg (${c.portionsCount} porsiya)`,
+        modifiers: [],
+        quantity: c.portionsCount,
+        unitPrice: c.selectedPlov.price,
+        totalPrice: c.portionsCount * c.selectedPlov.price,
+        note: `Osh Kalkulyatori: ${c.guests} mehmon uchun`
+      },
+      true
+    );
+
+    // 2. Add Qazi
+    handleAddToCart(
+      {
+        productId: "prod-add-1",
+        name: `Ot Qazisi (${c.qaziPieces} bo'lak)`,
+        image: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80",
+        variantName: "Osh ustiga kesilgan",
+        modifiers: [],
+        quantity: c.qaziPlates,
+        unitPrice: 38000,
+        totalPrice: c.qaziPlates * 38000,
+        note: ""
+      },
+      true
+    );
+
+    // 3. Add Bedana Tuxumi
+    handleAddToCart(
+      {
+        productId: "prod-add-3",
+        name: `Bedana Tuxumi (${c.bedanaEggs} dona)`,
+        image: "https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=800&q=80",
+        variantName: "Osh ustiga",
+        modifiers: [],
+        quantity: c.bedanaPlates,
+        unitPrice: 15000,
+        totalPrice: c.bedanaPlates * 15000,
+        note: ""
+      },
+      true
+    );
+
+    // 4. Add Do'lma if included
+    if (c.dolmaPlates > 0) {
+      handleAddToCart(
+        {
+          productId: "prod-add-2",
+          name: `Kovatok Do'lma (${c.dolmaCount} dona)`,
+          image: "https://images.unsplash.com/photo-1541518763669-27fef04b14ea?auto=format&fit=crop&w=800&q=80",
+          variantName: "Osh ustiga",
+          modifiers: [],
+          quantity: c.dolmaPlates,
+          unitPrice: 18000,
+          totalPrice: c.dolmaPlates * 18000,
+          note: ""
+        },
+        true
+      );
+    }
+
+    // 5. Add Achichuk Salad
+    handleAddToCart(
+      {
+        productId: "prod-sal-1",
+        name: "Achichuk Salat (Shakarob)",
+        image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80",
+        variantName: "Yangi to'g'ralgan",
+        modifiers: [],
+        quantity: c.achichukCount,
+        unitPrice: 14000,
+        totalPrice: c.achichukCount * 14000,
+        note: ""
+      },
+      true
+    );
+
+    // 6. Add Patir Non
+    handleAddToCart(
+      {
+        productId: "prod-brd-2",
+        name: "Kunjutli Tandir Patir Non",
+        image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80",
+        variantName: "Issiq tandirdan",
+        modifiers: [],
+        quantity: c.patirCount,
+        unitPrice: 10000,
+        totalPrice: c.patirCount * 10000,
+        note: ""
+      },
+      true
+    );
+
+    // 7. Add Tea
+    handleAddToCart(
+      {
+        productId: "prod-drk-1",
+        name: "Toshkent Limonli Choyi",
+        image: "https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=800&q=80",
+        variantName: "Novvot va limon bilan",
+        modifiers: [],
+        quantity: c.teaPots,
+        unitPrice: 10000,
+        totalPrice: c.teaPots * 10000,
+        note: ""
+      },
+      true
+    );
+
+    if (c.guests >= 6) {
+      setPackagingType("sopol_lagan");
+    }
+
+    showToast(
+      `👑 ${c.guests} mehmonlik shohona osh to'plami (${c.totalWeightKg} kg osh + qazi + achichuk + patir + choy) savatchaga qo'shildi!`
+    );
+    setIsCartOpen(true);
+  };
+
+  // Toggle inline topping on a product card
+  const handleToggleInlineModifier = (productId, modId) => {
+    sound.playPosTap();
+    setInlineToggles((prev) => {
+      const current = prev[productId] || [];
+      const exists = current.includes(modId);
+      return {
+        ...prev,
+        [productId]: exists ? current.filter((id) => id !== modId) : [...current, modId]
+      };
+    });
+  };
+
+  // Add product directly from card with its inline toggled toppings
+  const handleQuickAddCardWithToggles = (product) => {
     if (!product.inStock) {
-      showToast("Kechirasiz, ushbu taom vaqtincha tugagan (Stop-list)", "error");
+      showToast("Kechirasiz, ushbu taom vaqtincha tugagan", "error");
       return;
     }
     sound.playPosTap();
-    if ((product.variants && product.variants.length > 0) || (product.modifiers && product.modifiers.length > 0)) {
-      setModifierProduct(product);
-    } else {
-      handleAddToCart({
-        productId: product.id,
-        name: product.name,
-        image: product.image,
-        variantName: "",
-        modifiers: [],
-        quantity: 1,
-        unitPrice: product.price,
-        totalPrice: product.price,
-        note: ""
-      });
-    }
+    const selectedModIds = inlineToggles[product.id] || [];
+    const selectedMods = (product.modifiers || []).filter((m) => selectedModIds.includes(m.id));
+    const modsSum = selectedMods.reduce((s, m) => s + (Number(m.price) || 0), 0);
+    const unitPrice = product.price + modsSum;
+
+    handleAddToCart({
+      productId: product.id,
+      name: product.name,
+      image: product.image,
+      variantName: product.variants?.[1]?.name || product.variants?.[0]?.name || "1 Porsiya",
+      modifiers: selectedMods,
+      quantity: 1,
+      unitPrice,
+      totalPrice: unitPrice,
+      note: ""
+    });
   };
 
   const updateCartQty = (cartItemId, delta) => {
@@ -202,6 +612,22 @@ export default function CustomerWebView({ onNavigateModule }) {
 
   const totalDiscount = promoDiscount + bonusDiscount;
 
+  const selectedPackagingObj = useMemo(
+    () => PACKAGING_OPTIONS.find((p) => p.id === packagingType) || PACKAGING_OPTIONS[0],
+    [packagingType]
+  );
+
+  const packagingFee = useMemo(() => {
+    if (orderType === "dine_in") return 0;
+    if (
+      selectedPackagingObj.freeMinSubtotal > 0 &&
+      subtotal >= selectedPackagingObj.freeMinSubtotal
+    ) {
+      return 0;
+    }
+    return selectedPackagingObj.fee;
+  }, [orderType, selectedPackagingObj, subtotal]);
+
   const deliveryFee = useMemo(() => {
     if (orderType !== "delivery") return 0;
     if (subtotal >= (config.freeDeliveryMin || 150000)) return 0;
@@ -213,7 +639,10 @@ export default function CustomerWebView({ onNavigateModule }) {
     return Math.round((subtotal * (Number(config.serviceChargePercent) || 10)) / 100);
   }, [orderType, subtotal, config]);
 
-  const grandTotal = Math.max(0, subtotal - totalDiscount + deliveryFee + serviceFee);
+  const grandTotal = Math.max(
+    0,
+    subtotal - totalDiscount + deliveryFee + serviceFee + packagingFee
+  );
   const totalItemsCount = cart.reduce((s, c) => s + c.quantity, 0);
 
   const handleApplyPromo = () => {
@@ -221,7 +650,7 @@ export default function CustomerWebView({ onNavigateModule }) {
     if (!code) return;
     const found = promos.find((p) => p.code.toUpperCase() === code);
     if (!found) {
-      showToast("Bunday promokod topilmadi (Masalan: OSH20, FEEDUP)", "error");
+      showToast("Bunday promokod topilmadi (Masalan: OSH20, MEROS, FEEDUP)", "error");
       return;
     }
     if (subtotal < found.minOrder) {
@@ -239,6 +668,8 @@ export default function CustomerWebView({ onNavigateModule }) {
     setIsSubmitting(true);
 
     const selectedTable = tables.find((t) => t.id === selectedTableId);
+    const packLabel =
+      orderType !== "dine_in" ? ` [${selectedPackagingObj.name}]` : "";
 
     const payload = {
       source: orderType === "dine_in" ? "qr_table" : "web",
@@ -249,25 +680,25 @@ export default function CustomerWebView({ onNavigateModule }) {
         orderType === "dine_in"
           ? selectedTable?.number || "Zal Stoli"
           : orderType === "delivery"
-          ? "Yetkazib berish 🛵"
-          : `Olib ketish (${selectedBranch?.name?.split("(")[0] || "Filial"})`,
-      customerName: customerName.trim() || "Online Mijoz",
+          ? `Yetkazib berish • ${selectedPackagingObj.name}`
+          : `Olib ketish • ${selectedPackagingObj.name}`,
+      customerName: customerName.trim() || "Aziz Mehmon",
       customerPhone: customerPhone.trim() || "+998 90 000-00-00",
       address:
         orderType === "delivery"
-          ? deliveryAddress
+          ? `${deliveryAddress}${packLabel}`
           : orderType === "dine_in"
           ? selectedTable?.number
-          : selectedBranch?.address,
+          : `${selectedBranch?.address}${packLabel}`,
       paymentMethod,
       paymentStatus: "paid",
-      note: orderNote.trim(),
+      note: `${selectedPackagingObj.name}. ${orderNote.trim()}`.trim(),
       promoCode: appliedPromo?.code || "",
       usedBonus: bonusDiscount,
       items: cart,
       subtotal,
       discount: totalDiscount,
-      serviceFee,
+      serviceFee: serviceFee + packagingFee,
       deliveryFee,
       total: grandTotal
     };
@@ -282,31 +713,54 @@ export default function CustomerWebView({ onNavigateModule }) {
     setReceiptOrder(created);
   };
 
+  const handleReservationSubmit = (e) => {
+    e.preventDefault();
+    sound.playCashRegister();
+    const code = `BRON-${Math.floor(100 + Math.random() * 900)}`;
+    setBookingSuccess({
+      code,
+      name: bookingName || "Aziz Mehmon",
+      phone: bookingPhone,
+      guests: bookingGuests,
+      time: bookingTime,
+      zone: bookingZone,
+      branch: selectedBranch?.name
+    });
+    showToast(`Joy muvaffaqiyatli band qilindi! Bron kodi: ${code}`);
+  };
+
   const activeCustomerOrders = useMemo(
     () => orders.filter((o) => o.status !== "cancelled").slice(0, 6),
     [orders]
   );
 
+  const formatTimer = (sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
   return (
-    <div className="min-h-screen bg-stone-50 pb-24">
-      {/* Top Customer Sub-Header: Order Mode & Branch Selector */}
-      <div className="bg-white border-b border-stone-200 sticky top-14 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-          {/* Feed Up Style Order Type Switcher */}
-          <div className="inline-flex bg-stone-100 p-1 rounded-2xl border border-stone-200">
+    <div className="min-h-screen bg-[#0F0F0F] text-stone-100 pb-28 lagan-pattern-bg">
+      {/* Sticky Sub-Header: Order Mode, Packaging Choice, Live Delivery Timer & Cart */}
+      <div className="bg-[#141414]/95 backdrop-blur-xl border-b border-[#D4AF37]/20 sticky top-[60px] z-30 shadow-2xl">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2.5">
+          {/* Order Type Switcher */}
+          <div className="inline-flex bg-[#0F0F0F] p-1 rounded-2xl border border-[#D4AF37]/25">
             <button
               type="button"
               onClick={() => {
                 sound.playPosTap();
                 setOrderType("delivery");
               }}
-              style={orderType === "delivery" ? { backgroundColor: config.themeColor } : {}}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer ${
-                orderType === "delivery" ? "text-white shadow-sm" : "text-stone-600 hover:text-stone-900"
+              className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                orderType === "delivery"
+                  ? "bg-gradient-to-r from-[#D4AF37] to-[#C85A32] text-[#0F0F0F] shadow-md"
+                  : "text-stone-400 hover:text-white"
               }`}
             >
-              <Truck className="w-4 h-4" />
-              <span>Yetkazib berish</span>
+              <Truck className="w-3.5 h-3.5" />
+              <span>Issiq Yetkazish</span>
             </button>
             <button
               type="button"
@@ -314,13 +768,14 @@ export default function CustomerWebView({ onNavigateModule }) {
                 sound.playPosTap();
                 setOrderType("pickup");
               }}
-              style={orderType === "pickup" ? { backgroundColor: config.themeColor } : {}}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer ${
-                orderType === "pickup" ? "text-white shadow-sm" : "text-stone-600 hover:text-stone-900"
+              className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                orderType === "pickup"
+                  ? "bg-gradient-to-r from-[#D4AF37] to-[#C85A32] text-[#0F0F0F] shadow-md"
+                  : "text-stone-400 hover:text-white"
               }`}
             >
-              <Store className="w-4 h-4" />
-              <span>Olib ketish (Self-Pickup)</span>
+              <Store className="w-3.5 h-3.5" />
+              <span>Olib ketish</span>
             </button>
             <button
               type="button"
@@ -328,79 +783,60 @@ export default function CustomerWebView({ onNavigateModule }) {
                 sound.playPosTap();
                 setOrderType("dine_in");
               }}
-              style={orderType === "dine_in" ? { backgroundColor: config.themeColor } : {}}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer ${
-                orderType === "dine_in" ? "text-white shadow-sm" : "text-stone-600 hover:text-stone-900"
+              className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                orderType === "dine_in"
+                  ? "bg-gradient-to-r from-[#D4AF37] to-[#C85A32] text-[#0F0F0F] shadow-md"
+                  : "text-stone-400 hover:text-white"
               }`}
             >
-              <Utensils className="w-4 h-4" />
+              <Utensils className="w-3.5 h-3.5" />
               <span>Zaldan (QR-Stol)</span>
             </button>
           </div>
 
-          {/* Dynamic Context Input (Address / Branch / Table) */}
-          <div className="flex items-center gap-2 flex-1 max-w-md">
-            {orderType === "delivery" && (
-              <div className="flex items-center gap-2 bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 w-full">
-                <MapPin className="w-4 h-4 text-amber-600 shrink-0" />
-                <input
-                  type="text"
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  placeholder="Yetkazib berish manzilini kiriting..."
-                  className="bg-transparent text-xs font-semibold text-stone-800 w-full focus:outline-none"
-                />
-              </div>
-            )}
-            {orderType === "pickup" && (
-              <div className="flex items-center gap-2 bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 w-full">
-                <Store className="w-4 h-4 text-amber-600 shrink-0" />
-                <select
-                  value={selectedBranchId}
-                  onChange={(e) => setSelectedBranchId(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-stone-800 w-full focus:outline-none cursor-pointer"
+          {/* Packaging Selector Pill (Sopol Lagan vs Termos-Idish) */}
+          {orderType !== "dine_in" && (
+            <div className="hidden lg:flex items-center gap-1.5 bg-[#0F0F0F] px-2.5 py-1 rounded-xl border border-[#008B8B]/40">
+              <span className="text-[11px] text-[#2DD4BF] font-bold">Idish:</span>
+              {PACKAGING_OPTIONS.map((pk) => (
+                <button
+                  key={pk.id}
+                  type="button"
+                  onClick={() => {
+                    sound.playPosTap();
+                    setPackagingType(pk.id);
+                    showToast(`Yetkazish usuli: ${pk.name}`);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                    packagingType === pk.id
+                      ? "bg-[#008B8B] text-white"
+                      : "text-stone-400 hover:text-stone-200"
+                  }`}
                 >
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.qozonStatus})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {orderType === "dine_in" && (
-              <div className="flex items-center gap-2 bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 w-full">
-                <Utensils className="w-4 h-4 text-amber-600 shrink-0" />
-                <select
-                  value={selectedTableId}
-                  onChange={(e) => setSelectedTableId(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-stone-800 w-full focus:outline-none cursor-pointer"
-                >
-                  {tables.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.number} — {t.zone} ({t.seats} o'rinli)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
+                  {pk.icon} {pk.name.split(" ")[0]} {pk.name.split(" ")[1]}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {/* Right Quick Actions: Loyalty Bonus, Order Tracker & Cart */}
-          <div className="flex items-center gap-2.5">
-            <div className="hidden md:flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2 rounded-xl text-xs font-bold">
-              <Gift className="w-4 h-4 text-amber-600" />
-              <span>Bonus: {formatMoney(loyaltyPoints, config.currency)}</span>
+          {/* Right Quick Actions: Hot Delivery Timer, Order Tracker & Cart */}
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1.5 bg-[#C85A32]/15 border border-[#C85A32]/40 text-amber-200 px-3 py-1.5 rounded-xl text-xs font-bold">
+              <Timer className="w-3.5 h-3.5 text-[#C85A32] animate-pulse" />
+              <span>Issiq yetkazish:</span>
+              <span className="font-mono font-black text-[#D4AF37]">
+                {formatTimer(deliveryTimerSec)}
+              </span>
             </div>
 
             <button
               type="button"
               onClick={() => setIsTrackerOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-stone-900 text-white text-xs font-bold hover:bg-stone-800 transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1F1F1F] border border-[#D4AF37]/30 text-stone-200 text-xs font-bold hover:border-[#D4AF37] transition cursor-pointer"
             >
-              <Clock className="w-4 h-4 text-amber-400" />
-              <span>Buyurtma holati</span>
-              <span className="bg-amber-500 text-stone-950 font-black px-1.5 py-0.5 rounded-md text-[10px]">
+              <Clock className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <span className="hidden md:inline">Buyurtma holati</span>
+              <span className="bg-[#008B8B] text-white font-black px-1.5 py-0.5 rounded text-[10px]">
                 {activeCustomerOrders[0]?.queueNumber || "JONLI"}
               </span>
             </button>
@@ -408,191 +844,625 @@ export default function CustomerWebView({ onNavigateModule }) {
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
-              style={{ backgroundColor: config.themeColor }}
-              className="flex items-center gap-2.5 px-4 py-2 rounded-xl text-white text-xs font-extrabold shadow-md hover:opacity-95 transition cursor-pointer"
+              className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#C85A32] to-[#D4AF37] text-[#0F0F0F] text-xs font-black shadow-lg hover:brightness-110 transition cursor-pointer gold-glow"
             >
               <ShoppingBag className="w-4 h-4" />
               <span>{formatMoney(grandTotal, config.currency)}</span>
-              <span className="bg-black/25 px-2 py-0.5 rounded-full text-[11px]">{totalItemsCount}</span>
+              <span className="bg-[#0F0F0F] text-[#D4AF37] px-2 py-0.5 rounded-full text-[11px]">
+                {totalItemsCount}
+              </span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Main Content Container */}
-      <div className="max-w-7xl mx-auto px-4 pt-6 space-y-8">
-        {/* 1. Hero Brand Banner with Live Qozon Status */}
-        <div
-          style={{
-            background: `linear-gradient(135deg, #1c1917 0%, #292524 55%, ${config.themeColor} 100%)`
-          }}
-          className="rounded-3xl p-6 sm:p-8 md:p-10 text-white shadow-xl relative overflow-hidden"
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 pt-6 space-y-14">
+        {/* =====================================================================
+            1. HERO SECTION + "JONLI QOZON" STATUSI (LIVE KAZAN TRACKER)
+           ===================================================================== */}
+        <section
+          id="jonli-qozon"
+          className="relative rounded-[32px] overflow-hidden border border-[#D4AF37]/35 bg-gradient-to-br from-[#161311] via-[#0F0F0F] to-[#1A1410] shadow-[0_25px_70px_rgba(0,0,0,0.85)]"
         >
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center relative z-10">
-            <div className="lg:col-span-7 space-y-4">
-              <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wide border border-white/20">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                <span>{config.badgeText || "Asosiy Qozonlar Ochiq • Issiq Osh Tayyor!"}</span>
+          {/* Background Steaming To'y Oshi Visual + Oriental Vignette */}
+          <div className="absolute inset-0 opacity-30 pointer-events-none">
+            <img
+              src="https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=1800&q=85"
+              alt="Toshkent To'y Oshi"
+              className="w-full h-full object-cover object-center scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0F0F0F] via-[#0F0F0F]/85 to-[#0F0F0F]/65" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F0F] via-transparent to-[#0F0F0F]/60" />
+          </div>
+
+          {/* Animated Rising Steam ("Bug'" effekti) Layers */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="steam-wisp-1 absolute bottom-10 left-1/4 w-72 h-72 rounded-full bg-gradient-to-t from-amber-100/15 via-white/10 to-transparent blur-3xl" />
+            <div className="steam-wisp-2 absolute bottom-16 left-1/2 w-96 h-96 rounded-full bg-gradient-to-t from-[#D4AF37]/15 via-stone-200/10 to-transparent blur-3xl" />
+            <div className="steam-wisp-3 absolute bottom-8 right-1/4 w-80 h-80 rounded-full bg-gradient-to-t from-[#C85A32]/15 via-white/10 to-transparent blur-3xl" />
+          </div>
+
+          <div className="relative z-10 p-6 sm:p-10 lg:p-12 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            {/* Left Column: Heritage Hero Headline & Steaming Showcase */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="inline-flex flex-wrap items-center gap-2 bg-[#1A1815]/90 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold border border-[#D4AF37]/40 text-[#D4AF37]">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                <span>PREMIUM HERITAGE • TOSHKENT OSH MARKAZI</span>
+                <span className="text-stone-500">|</span>
+                <span className="text-[#2DD4BF]">100% Xorazm Lazer & Uzgen Devzira</span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight">
-                {config.logoEmoji} {config.brandName}
+              <h1 className="font-serif-heritage text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08] text-white">
+                Qozondan Yangi Uzilgan{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] via-[#F3E5AB] to-[#C85A32]">
+                  Shohona O'zbek Oshi
+                </span>
               </h1>
 
-              <p className="text-stone-200 text-sm sm:text-base max-w-xl leading-relaxed">
-                {config.slogan}
+              <p className="text-stone-300 text-sm sm:text-base max-w-2xl leading-relaxed">
+                O'rik o'tinida qizigan quyma cho'yan qozonlar, Xorazmning oltin Lazer guruchi,
+                qarsildoq ot qazisi va Rishton ustalarining feruza sopol laganlarida{" "}
+                <strong className="text-[#D4AF37]">25 daqiqada bug'i bilan</strong> dasturxoningizda.
               </p>
 
-              {/* Key Service Highlights */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
-                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-3">
-                  <div className="text-[11px] text-stone-300">Yetkazish vaqti</div>
-                  <div className="text-sm sm:text-base font-black mt-0.5 flex items-center gap-1.5">
-                    ⚡ {selectedBranch?.deliveryTime || "25-35 daq"}
+              {/* Featured Steaming Kazan Visual Preview Card */}
+              <div className="relative rounded-2xl overflow-hidden border border-[#D4AF37]/40 bg-[#141414]/90 p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-4 shadow-2xl">
+                <div className="relative w-full sm:w-44 h-32 rounded-xl overflow-hidden shrink-0">
+                  <img
+                    src="https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=900&q=85"
+                    alt="Bug'i chiqayotgan Toshkent To'y Oshi"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="steam-wisp-1 absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/30 to-transparent blur-xl pointer-events-none" />
+                  <span className="absolute top-2 left-2 bg-[#0F0F0F]/85 text-[#D4AF37] border border-[#D4AF37]/40 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Flame className="w-3 h-3 text-[#C85A32]" /> 94°C ISSIQ BUG'
+                  </span>
+                </div>
+                <div className="flex-1 space-y-2 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#2DD4BF]">
+                      Ayni damda 1-Qozondan suzilmoqda
+                    </span>
+                    <span className="text-xs font-black text-[#D4AF37]">38 000 so'm / porsiya</span>
+                  </div>
+                  <h3 className="font-serif-heritage text-lg font-bold text-white">
+                    Toshkent To'y Oshi — Ot Qazisi va Bedana Tuxumi bilan
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <a
+                      href="#osh-kalkulyatori"
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#C85A32] text-[#0F0F0F] text-xs font-black shadow-md hover:brightness-110 transition flex items-center gap-1.5"
+                    >
+                      <Calculator className="w-3.5 h-3.5" />
+                      <span>Mehmonlar uchun hisoblash</span>
+                    </a>
+                    <a
+                      href="#interaktiv-menyu"
+                      className="px-4 py-2 rounded-xl bg-[#1F1F1F] hover:bg-[#2A2A2A] text-stone-100 border border-[#D4AF37]/30 text-xs font-bold transition"
+                    >
+                      Kompleks yig'ish →
+                    </a>
                   </div>
                 </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-3">
-                  <div className="text-[11px] text-stone-300">Bepul dastavka</div>
-                  <div className="text-sm sm:text-base font-black mt-0.5">
-                    🛵 {formatMoney(config.freeDeliveryMin, config.currency)} dan
+              </div>
+
+              {/* Heritage Metrics Strip */}
+              <div className="grid grid-cols-3 gap-3 pt-1">
+                <div className="bg-[#161616]/90 border border-[#D4AF37]/20 rounded-2xl p-3">
+                  <div className="text-[11px] text-stone-400">Issiq yetkazish</div>
+                  <div className="text-sm sm:text-base font-black text-[#D4AF37] mt-0.5">
+                    ⚡ 25 daqiqa (88°C+)
                   </div>
                 </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-3 col-span-2 sm:col-span-1">
-                  <div className="text-[11px] text-stone-300">Keshbek tizimi</div>
-                  <div className="text-sm sm:text-base font-black mt-0.5">
-                    🎁 Har xariddan {config.cashbackPercent || 5}% bonus
+                <div className="bg-[#161616]/90 border border-[#008B8B]/30 rounded-2xl p-3">
+                  <div className="text-[11px] text-stone-400">Tortiq usuli</div>
+                  <div className="text-sm sm:text-base font-black text-[#2DD4BF] mt-0.5">
+                    🏺 Sopol Lagan / Termos
+                  </div>
+                </div>
+                <div className="bg-[#161616]/90 border border-[#C85A32]/30 rounded-2xl p-3">
+                  <div className="text-[11px] text-stone-400">Soliq.uz QR</div>
+                  <div className="text-sm sm:text-base font-black text-amber-300 mt-0.5">
+                    🏛️ 1% Fiskal + 5% Bonus
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Interactive Live Queue & Promo Preview Card */}
-            <div className="lg:col-span-5 bg-black/35 backdrop-blur-md border border-white/15 rounded-2xl p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-white/15 pb-3">
+            {/* Right Column: "JONLI QOZON" (LIVE KAZAN TRACKER) WIDGET */}
+            <div className="lg:col-span-5 bg-[#121212]/95 backdrop-blur-xl border-2 border-[#D4AF37]/45 rounded-3xl p-5 sm:p-6 shadow-[0_0_50px_rgba(212,175,55,0.12)] space-y-4">
+              <div className="flex items-center justify-between border-b border-stone-800 pb-3.5">
                 <div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                    Jonli Elektron Navbat
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                    <span className="font-cinzel text-sm font-black uppercase tracking-wider text-[#D4AF37]">
+                      Jonli Qozon Statusi
+                    </span>
                   </div>
-                  <div className="text-xs text-stone-300">{selectedBranch?.name}</div>
+                  <p className="text-[11px] text-stone-400 mt-0.5">
+                    Oshxonadagi 4 ta cho'yan qozonning real vaqtdagi holati
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-[#C85A32]/20 border border-[#C85A32]/50 text-[#FDBA74] text-[10px] font-black flex items-center gap-1">
+                  <Thermometer className="w-3 h-3" /> JONLI EFIR
+                </span>
+              </div>
+
+              {/* 4 Live Kazans List */}
+              <div className="space-y-3">
+                {kazans.map((k) => {
+                  const isReady = k.status === "ready";
+                  const pct = Math.round((k.portionsLeft / k.maxPortions) * 100);
+                  const active = selectedKazanId === k.id;
+                  return (
+                    <div
+                      key={k.id}
+                      onClick={() => setSelectedKazanId(k.id)}
+                      className={`p-3.5 rounded-2xl border transition cursor-pointer ${
+                        active
+                          ? "bg-[#1C1915] border-[#D4AF37]"
+                          : "bg-[#161616] border-stone-800 hover:border-stone-700"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black px-2 py-0.5 rounded-md bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40">
+                              {k.number}
+                            </span>
+                            <h4 className="font-bold text-sm text-white">{k.title}</h4>
+                          </div>
+                          <div className="text-xs font-extrabold mt-1.5 flex items-center gap-1.5">
+                            {isReady ? (
+                              <span className="text-emerald-400 flex items-center gap-1">
+                                ● {k.number} ({k.title.split(" ")[0]} oshi):{" "}
+                                <strong className="underline">
+                                  Tayyor — {k.portionsLeft} porsiya qoldi
+                                </strong>
+                              </span>
+                            ) : (
+                              <span className="text-amber-400 flex items-center gap-1">
+                                ⏳ {k.number} ({k.title.split(" ")[0]} oshi):{" "}
+                                <strong>{k.statusText}</strong> ({formatTimer(k.etaSeconds)})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const prod =
+                              products.find((p) => p.id === k.productId) || products[0];
+                            if (prod) {
+                              sound.playPosTap();
+                              handleAddToCart({
+                                productId: prod.id,
+                                name: `${prod.name} (${k.number})`,
+                                image: prod.image,
+                                variantName: "1 Porsiya (Standart)",
+                                modifiers: [],
+                                quantity: 1,
+                                unitPrice: prod.price,
+                                totalPrice: prod.price,
+                                note: `${k.number}dan issiq suzilsin`
+                              });
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 transition cursor-pointer ${
+                            isReady
+                              ? "bg-gradient-to-r from-[#D4AF37] to-[#C85A32] text-[#0F0F0F] hover:brightness-110"
+                              : "bg-[#008B8B]/25 text-[#2DD4BF] border border-[#008B8B]/50 hover:bg-[#008B8B]/40"
+                          }`}
+                        >
+                          {isReady ? "+ Suzish" : "Band qilish"}
+                        </button>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-stone-800 rounded-full overflow-hidden">
+                          <div
+                            style={{
+                              width: `${pct}%`,
+                              backgroundColor: isReady ? "#10B981" : "#D4AF37"
+                            }}
+                            className="h-full rounded-full transition-all duration-500"
+                          />
+                        </div>
+                        <span className="text-[10px] text-stone-400 font-semibold">
+                          👨‍🍳 {k.chef} • {k.temp}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Live Hall Queue Mini Footer */}
+              <div className="pt-2 border-t border-stone-800 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-stone-400">Zal navbati:</span>
+                  {orders
+                    .filter((o) => o.status === "ready")
+                    .slice(0, 3)
+                    .map((o) => (
+                      <span
+                        key={o.id}
+                        className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black px-2 py-0.5 rounded text-[11px]"
+                      >
+                        {o.queueNumber} ✓
+                      </span>
+                    ))}
                 </div>
                 <button
                   type="button"
                   onClick={() => onNavigateModule && onNavigateModule("queue")}
-                  className="text-xs bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-xl font-bold transition cursor-pointer"
+                  className="text-[#D4AF37] hover:underline font-bold cursor-pointer"
                 >
-                  TV Ekranni ochish →
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-amber-500/20 border border-amber-400/30 rounded-xl p-3">
-                  <div className="text-[10px] font-bold uppercase text-amber-300">Tayyorlanmoqda</div>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {orders
-                      .filter((o) => o.status === "cooking" || o.status === "new")
-                      .slice(0, 4)
-                      .map((o) => (
-                        <span
-                          key={o.id}
-                          className="bg-amber-500 text-stone-950 font-black text-xs px-2 py-0.5 rounded-md"
-                        >
-                          {o.queueNumber}
-                        </span>
-                      ))}
-                  </div>
-                </div>
-                <div className="bg-emerald-500/20 border border-emerald-400/30 rounded-xl p-3">
-                  <div className="text-[10px] font-bold uppercase text-emerald-300">Tayyor (Oling!)</div>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {orders
-                      .filter((o) => o.status === "ready")
-                      .slice(0, 4)
-                      .map((o) => (
-                        <span
-                          key={o.id}
-                          className="bg-emerald-400 text-stone-950 font-black text-xs px-2 py-0.5 rounded-md animate-pulse"
-                        >
-                          {o.queueNumber}
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between bg-white/10 rounded-xl px-3.5 py-2.5 text-xs">
-                <span>🎉 Promokod: <strong className="text-amber-300">OSH20</strong> (-20% chegirma)</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPromoInput("OSH20");
-                    showToast("OSH20 promokodi nusxalandi!");
-                  }}
-                  className="text-amber-300 font-bold underline cursor-pointer"
-                >
-                  Qo'llash
+                  TV Ekran →
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* 2. Feed Up Style Interactive Stories Carousel */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-extrabold uppercase tracking-wider text-stone-500 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              Qaynoq Aksiyalar va Hikoyalar (Stories)
-            </h2>
-            <span className="text-xs text-stone-400">Bosing va promokod oling</span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            {stories.map((story) => (
-              <button
-                key={story.id}
-                type="button"
-                onClick={() => {
-                  sound.playPosTap();
-                  setActiveStory(story);
-                }}
-                className="group relative h-44 rounded-2xl overflow-hidden text-left p-4 flex flex-col justify-between shadow-md hover:shadow-xl transition-all hover:-translate-y-0.5 cursor-pointer border-2 border-amber-500/60"
-              >
-                <img
-                  src={story.image}
-                  alt={story.title}
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
-                <span
-                  style={{ backgroundColor: config.themeColor }}
-                  className="relative z-10 self-start text-[10px] font-black text-white px-2.5 py-1 rounded-full shadow"
-                >
-                  {story.badge}
-                </span>
-                <div className="relative z-10 text-white">
-                  <div className="font-black text-base leading-snug">{story.title}</div>
-                  <div className="text-[11px] text-stone-200 line-clamp-1 mt-0.5">{story.subtitle}</div>
+        {/* =====================================================================
+            2. AQLLI "OSH KALKULYATORI" (INTERACTIVE PLOV BUILDER)
+           ===================================================================== */}
+        <section
+          id="osh-kalkulyatori"
+          className="rounded-[32px] border-2 border-[#D4AF37]/40 bg-gradient-to-br from-[#171411] via-[#121212] to-[#141A1A] p-6 sm:p-8 lg:p-10 shadow-2xl relative overflow-hidden"
+        >
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-stone-800 pb-6 mb-8">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#D4AF37] text-xs font-extrabold mb-2">
+                <Calculator className="w-3.5 h-3.5" />
+                <span>AQLLI OSH KALKULYATORI • INTERACTIVE PLOV BUILDER</span>
+              </div>
+              <h2 className="font-serif-heritage text-2xl sm:text-4xl font-black text-white">
+                Mehmonlar Sonini Kiriting — Dasturxonni O'zimiz Hisoblaymiz
+              </h2>
+              <p className="text-stone-400 text-xs sm:text-sm mt-1">
+                Necha kishi bo'lishingizni tanlang: tizim avtomatik ravishda necha kg osh, necha bo'lak
+                qazi, bedana tuxumi, achichuk, patir non va choy kerakligini hisoblab beradi.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 bg-[#0F0F0F] px-4 py-3 rounded-2xl border border-[#008B8B]/50 shrink-0">
+              <span className="text-2xl">🏺</span>
+              <div>
+                <div className="text-[11px] font-bold text-[#2DD4BF] uppercase">Maxsus aksiya</div>
+                <div className="text-xs font-extrabold text-white">
+                  4+ kishilik to'plamga <span className="text-[#D4AF37]">-10% chegirma</span> + Sopol Lagan!
                 </div>
-              </button>
-            ))}
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* 3. Sticky Categories + Search Filter Bar */}
-        <div className="sticky top-[112px] z-20 bg-stone-50/95 backdrop-blur-md py-3 border-b border-stone-200 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-          {/* Categories Horizontal List */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+            {/* Left Controls: Guest Count, Plov Type & Dasturxon Style */}
+            <div className="lg:col-span-6 space-y-6 bg-[#0F0F0F]/80 p-5 sm:p-6 rounded-3xl border border-stone-800">
+              {/* Step 1: Guest Count Selector */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-xs font-extrabold uppercase tracking-wider text-stone-300 flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-[#D4AF37]" />
+                    <span>1. Mehmonlar soni:</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playPosTap();
+                        setGuestCount((g) => Math.max(1, g - 1));
+                      }}
+                      className="w-8 h-8 rounded-xl bg-[#1F1F1F] hover:bg-stone-700 text-white font-black flex items-center justify-center border border-stone-700 cursor-pointer"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <span className="font-serif-heritage text-2xl sm:text-3xl font-black text-[#D4AF37] min-w-[95px] text-center">
+                      {guestCount} kishi
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playPosTap();
+                        setGuestCount((g) => Math.min(50, g + 1));
+                      }}
+                      className="w-8 h-8 rounded-xl bg-[#D4AF37] hover:brightness-110 text-[#0F0F0F] font-black flex items-center justify-center cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Slider */}
+                <input
+                  type="range"
+                  min={1}
+                  max={30}
+                  value={guestCount}
+                  onChange={(e) => setGuestCount(Number(e.target.value))}
+                  className="w-full accent-[#D4AF37] cursor-pointer h-2 bg-stone-800 rounded-lg"
+                />
+
+                {/* Quick Guest Presets */}
+                <div className="grid grid-cols-5 gap-2 mt-3">
+                  {[2, 4, 8, 12, 20].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => {
+                        sound.playPosTap();
+                        setGuestCount(num);
+                      }}
+                      className={`py-2 rounded-xl text-xs font-extrabold border transition cursor-pointer ${
+                        guestCount === num
+                          ? "bg-[#D4AF37] text-[#0F0F0F] border-[#D4AF37] shadow-md"
+                          : "bg-[#161616] text-stone-300 border-stone-800 hover:border-[#D4AF37]/50"
+                      }`}
+                    >
+                      {num} kishi
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 2: Select Plov Type */}
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-stone-300 mb-2.5">
+                  2. Qaysi osh turini tanlaysiz?
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {plovProducts.map((plov) => {
+                    const active = calcPlovId === plov.id;
+                    return (
+                      <button
+                        key={plov.id}
+                        type="button"
+                        onClick={() => {
+                          sound.playPosTap();
+                          setCalcPlovId(plov.id);
+                        }}
+                        className={`p-3 rounded-2xl border text-left transition flex items-center gap-3 cursor-pointer ${
+                          active
+                            ? "bg-[#1F1A12] border-[#D4AF37] text-white shadow-md"
+                            : "bg-[#161616] border-stone-800 text-stone-300 hover:border-stone-700"
+                        }`}
+                      >
+                        <img
+                          src={plov.image}
+                          alt={plov.name}
+                          className="w-12 h-12 rounded-xl object-cover shrink-0 border border-[#D4AF37]/30"
+                        />
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs text-white truncate">{plov.name}</div>
+                          <div className="text-[11px] text-[#D4AF37] font-extrabold mt-0.5">
+                            {formatMoney(plov.price, config.currency)} / porsiya
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Step 3: Dasturxon Richness Level */}
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-stone-300 mb-2.5">
+                  3. Dasturxon to'kinligi darajasi:
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {[
+                    { id: "standart", label: "Klassik", desc: "1x Qazi + Tuxum" },
+                    { id: "shohona", label: "Shohona 👑", desc: "1.5x Qazi + Do'lma" },
+                    { id: "choyxona", label: "Ulfatlar 🔥", desc: "Katta porsiya + Qo'shimcha" }
+                  ].map((tier) => (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      onClick={() => {
+                        sound.playPosTap();
+                        setCalcRichness(tier.id);
+                      }}
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                        calcRichness === tier.id
+                          ? "bg-[#008B8B]/25 border-[#2DD4BF] text-white"
+                          : "bg-[#161616] border-stone-800 text-stone-400 hover:text-stone-200"
+                      }`}
+                    >
+                      <div className="text-xs font-black">{tier.label}</div>
+                      <div className="text-[10px] text-stone-400 mt-0.5">{tier.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Output: Calculated Breakdown & 1-Click Add to Cart */}
+            <div className="lg:col-span-6 bg-gradient-to-b from-[#1C1813] to-[#121212] p-5 sm:p-6 rounded-3xl border border-[#D4AF37]/40 flex flex-col justify-between space-y-5">
+              <div>
+                <div className="flex items-center justify-between border-b border-stone-800 pb-3">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">
+                      Tavsiya etilgan me'yor ({plovCalculation.guests} kishi uchun)
+                    </span>
+                    <h3 className="font-serif-heritage text-xl font-black text-white mt-0.5">
+                      {plovCalculation.selectedPlov?.name} To'plami
+                    </h3>
+                  </div>
+                  <span className="px-3 py-1 rounded-xl bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40 text-xs font-black">
+                    🏺 {plovCalculation.laganCount} ta Sopol Lagan
+                  </span>
+                </div>
+
+                {/* Calculated Items Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
+                  <div className="bg-[#0F0F0F]/90 border border-[#D4AF37]/30 rounded-2xl p-3">
+                    <div className="text-xs text-stone-400">🍛 Issiq Osh</div>
+                    <div className="text-base font-black text-[#D4AF37] mt-0.5">
+                      {plovCalculation.totalWeightKg} kg
+                    </div>
+                    <div className="text-[11px] text-stone-400">
+                      ({plovCalculation.portionsCount} porsiya)
+                    </div>
+                  </div>
+
+                  <div className="bg-[#0F0F0F]/90 border border-stone-800 rounded-2xl p-3">
+                    <div className="text-xs text-stone-400">🥩 Ot Qazisi</div>
+                    <div className="text-base font-black text-white mt-0.5">
+                      {plovCalculation.qaziPieces} bo'lak
+                    </div>
+                    <div className="text-[11px] text-stone-400">
+                      ({plovCalculation.qaziPlates} porsiya)
+                    </div>
+                  </div>
+
+                  <div className="bg-[#0F0F0F]/90 border border-stone-800 rounded-2xl p-3">
+                    <div className="text-xs text-stone-400">🥚 Bedana tuxumi</div>
+                    <div className="text-base font-black text-white mt-0.5">
+                      {plovCalculation.bedanaEggs} dona
+                    </div>
+                    <div className="text-[11px] text-stone-400">Tozalangan</div>
+                  </div>
+
+                  <div className="bg-[#0F0F0F]/90 border border-stone-800 rounded-2xl p-3">
+                    <div className="text-xs text-stone-400">🥗 Achichuk salat</div>
+                    <div className="text-base font-black text-white mt-0.5">
+                      {plovCalculation.achichukCount} tarelka
+                    </div>
+                    <div className="text-[11px] text-stone-400">Shakarob + rayhon</div>
+                  </div>
+
+                  <div className="bg-[#0F0F0F]/90 border border-stone-800 rounded-2xl p-3">
+                    <div className="text-xs text-stone-400">🫓 Tandir Patir</div>
+                    <div className="text-base font-black text-white mt-0.5">
+                      {plovCalculation.patirCount} ta butun
+                    </div>
+                    <div className="text-[11px] text-stone-400">Kunjutli issiq patir</div>
+                  </div>
+
+                  <div className="bg-[#0F0F0F]/90 border border-stone-800 rounded-2xl p-3">
+                    <div className="text-xs text-stone-400">🫖 Limonli Choy</div>
+                    <div className="text-base font-black text-white mt-0.5">
+                      {plovCalculation.teaPots} choynak
+                    </div>
+                    <div className="text-[11px] text-stone-400">
+                      {plovCalculation.dolmaCount > 0
+                        ? `+ ${plovCalculation.dolmaCount} dona Do'lma`
+                        : "Novvot bilan"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Price Summary & One-Click Add Button */}
+              <div className="pt-4 border-t border-stone-800 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs text-stone-400">
+                      Har bir mehmon uchun o'rtacha:{" "}
+                      <strong className="text-[#2DD4BF]">
+                        {formatMoney(plovCalculation.perPersonPrice, config.currency)}
+                      </strong>
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-0.5">
+                      <span className="font-serif-heritage text-2xl sm:text-3xl font-black text-[#D4AF37]">
+                        {formatMoney(plovCalculation.finalBundleTotal, config.currency)}
+                      </span>
+                      {plovCalculation.bundleDiscount > 0 && (
+                        <span className="text-xs text-stone-500 line-through">
+                          {formatMoney(plovCalculation.rawBundleTotal, config.currency)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {plovCalculation.bundleDiscount > 0 && (
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold">
+                      Tejaldi: {formatMoney(plovCalculation.bundleDiscount, config.currency)}
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddCalculatedPlovBundle}
+                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#C85A32] to-[#D4AF37] text-[#0F0F0F] font-black text-sm sm:text-base shadow-xl hover:brightness-110 transition flex items-center justify-center gap-2 cursor-pointer gold-glow"
+                >
+                  <ShoppingBag className="w-5 h-5" />
+                  <span>
+                    Bir tugma bilan savatchaga qo'shish ({plovCalculation.guests} kishilik to'plam)
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =====================================================================
+            3. INTERAKTIV MENYU (KOMPLEKS YIG'ISH — INLINE TOGGLE TOPPINGS)
+           ===================================================================== */}
+        <section id="interaktiv-menyu" className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#2DD4BF] mb-1">
+                <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                <span>INTERAKTIV MENYU • KOMPLEKS YIG'ISH</span>
+              </div>
+              <h2 className="font-serif-heritage text-2xl sm:text-4xl font-black text-white">
+                Osh Turlari va Shohona Taomlar
+              </h2>
+              <p className="text-stone-400 text-xs sm:text-sm mt-1">
+                Har bir osh kartochkasining o'zida ustiga{" "}
+                <strong className="text-[#D4AF37]">
+                  Qazi, Do'lma, Sarimsoq, Achchiq qalampir, Bedana tuxumi
+                </strong>{" "}
+                qo'shish tugmalarini yoqing yoki o'chiring!
+              </p>
+            </div>
+
+            {/* Search & Popular Toggle */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="To'y oshi, Devzira, Zig'ir, Qazi..."
+                  className="w-full pl-9 pr-3 py-2.5 bg-[#161616] border border-stone-800 rounded-xl text-xs font-medium text-white focus:outline-none focus:border-[#D4AF37]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setOnlyPopular((v) => !v)}
+                className={`px-3.5 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
+                  onlyPopular
+                    ? "bg-[#D4AF37] text-[#0F0F0F] border-[#D4AF37]"
+                    : "bg-[#161616] text-stone-300 border-stone-800 hover:border-stone-700"
+                }`}
+              >
+                <Flame className="w-3.5 h-3.5" />
+                <span>Xit taomlar</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2">
             <button
               type="button"
               onClick={() => {
                 sound.playPosTap();
                 setActiveCategory("all");
               }}
-              style={activeCategory === "all" ? { backgroundColor: config.themeColor } : {}}
               className={`px-4 py-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition cursor-pointer ${
                 activeCategory === "all"
-                  ? "text-white shadow-sm"
-                  : "bg-white text-stone-700 border border-stone-200 hover:bg-stone-100"
+                  ? "bg-gradient-to-r from-[#D4AF37] to-[#C85A32] text-[#0F0F0F] shadow-md"
+                  : "bg-[#161616] text-stone-300 border border-stone-800 hover:border-[#D4AF37]/40"
               }`}
             >
               🍽️ Barchasi ({products.length})
@@ -607,11 +1477,10 @@ export default function CustomerWebView({ onNavigateModule }) {
                     sound.playPosTap();
                     setActiveCategory(cat.id);
                   }}
-                  style={active ? { backgroundColor: config.themeColor } : {}}
                   className={`px-4 py-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition flex items-center gap-1.5 cursor-pointer ${
                     active
-                      ? "text-white shadow-sm"
-                      : "bg-white text-stone-700 border border-stone-200 hover:bg-stone-100"
+                      ? "bg-gradient-to-r from-[#D4AF37] to-[#C85A32] text-[#0F0F0F] shadow-md"
+                      : "bg-[#161616] text-stone-300 border border-stone-800 hover:border-[#D4AF37]/40"
                   }`}
                 >
                   <span>{cat.icon}</span>
@@ -621,569 +1490,869 @@ export default function CustomerWebView({ onNavigateModule }) {
             })}
           </div>
 
-          {/* Search & Popular Toggle */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 md:w-60">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Osh, kombo, qazi, achichuk..."
-                className="w-full pl-9 pr-3 py-2 bg-white border border-stone-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setOnlyPopular((v) => !v)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
-                onlyPopular
-                  ? "bg-amber-500 text-stone-950 border-amber-500"
-                  : "bg-white text-stone-700 border-stone-200 hover:bg-stone-100"
-              }`}
-            >
-              <Flame className="w-3.5 h-3.5" />
-              <span>Xit taomlar</span>
-            </button>
-          </div>
-        </div>
+          {/* Interactive Product Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProducts.map((product) => {
+              const hasInlineMods = product.modifiers && product.modifiers.length > 0;
+              const activeModIds = inlineToggles[product.id] || [];
+              const activeModsSum = (product.modifiers || [])
+                .filter((m) => activeModIds.includes(m.id))
+                .reduce((s, m) => s + (Number(m.price) || 0), 0);
+              const liveCardPrice = product.price + activeModsSum;
 
-        {/* 4. Menu Product Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filteredProducts.map((product) => {
-            const hasModifiers =
-              (product.variants && product.variants.length > 0) ||
-              (product.modifiers && product.modifiers.length > 0);
-            return (
-              <div
-                key={product.id}
-                onClick={() => handleProductClick(product)}
-                className={`group bg-white rounded-3xl border border-stone-200/90 overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between cursor-pointer ${
-                  !product.inStock ? "opacity-60 grayscale" : "hover:-translate-y-1"
-                }`}
-              >
-                <div>
-                  {/* Image Container */}
-                  <div className="relative h-48 bg-stone-100 overflow-hidden">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                      onError={(e) => {
-                        e.target.src =
-                          "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=800&q=80";
-                      }}
-                    />
-                    {product.badge && (
-                      <span
-                        style={{ backgroundColor: config.themeColor }}
-                        className="absolute top-3 left-3 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-md"
-                      >
-                        {product.badge}
-                      </span>
-                    )}
-                    {!product.inStock && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <span className="bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-xl uppercase">
-                          Vaqtincha Tugadi (Stop-list)
+              return (
+                <div
+                  key={product.id}
+                  className={`group bg-[#161616] rounded-3xl border border-stone-800 hover:border-[#D4AF37]/60 overflow-hidden shadow-xl transition-all duration-300 flex flex-col justify-between ${
+                    !product.inStock ? "opacity-60 grayscale" : "hover:-translate-y-1"
+                  }`}
+                >
+                  <div>
+                    {/* Food-Porn Image Header */}
+                    <div
+                      onClick={() => setModifierProduct(product)}
+                      className="relative h-56 bg-[#0F0F0F] overflow-hidden cursor-pointer"
+                    >
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
+                        onError={(e) => {
+                          e.target.src =
+                            "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=800&q=80";
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#161616] via-transparent to-black/30" />
+
+                      {product.badge && (
+                        <span className="absolute top-3 left-3 bg-[#0F0F0F]/90 border border-[#D4AF37]/60 text-[#D4AF37] text-[10px] font-black px-3 py-1 rounded-full shadow-lg">
+                          {product.badge}
+                        </span>
+                      )}
+
+                      {product.regionTag && (
+                        <span className="absolute top-3 right-3 bg-[#008B8B]/85 text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+                          {product.regionTag}
+                        </span>
+                      )}
+
+                      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-stone-300 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10">
+                          ⚖️ {product.weight} {product.riceType ? `• ${product.riceType}` : ""}
                         </span>
                       </div>
-                    )}
-                    <div className="absolute bottom-2.5 right-2.5 bg-black/65 backdrop-blur-md text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-lg">
-                      {product.weight}
+                    </div>
+
+                    {/* Card Content */}
+                    <div className="p-5 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3
+                          onClick={() => setModifierProduct(product)}
+                          className="font-serif-heritage font-bold text-lg text-white group-hover:text-[#D4AF37] transition cursor-pointer"
+                        >
+                          {product.name}
+                        </h3>
+                      </div>
+
+                      <p className="text-xs text-stone-400 line-clamp-2 leading-relaxed">
+                        {product.description}
+                      </p>
+
+                      {/* INLINE INTERACTIVE TOGGLE TOPPINGS (Qazi, Do'lma, Sarimsoq, Achchiq qalampir, Bedana) */}
+                      {hasInlineMods && (
+                        <div className="pt-2 border-t border-stone-800/80">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#D4AF37]">
+                              Ustiga qo'shimchalar (Toggle):
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setModifierProduct(product)}
+                              className="text-[11px] text-[#2DD4BF] hover:underline font-bold cursor-pointer"
+                            >
+                              Porsiya tanlash →
+                            </button>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5">
+                            {product.modifiers.map((mod) => {
+                              const isSelected = activeModIds.includes(mod.id);
+                              return (
+                                <button
+                                  key={mod.id}
+                                  type="button"
+                                  onClick={() => handleToggleInlineModifier(product.id, mod.id)}
+                                  className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition flex items-center gap-1 cursor-pointer ${
+                                    isSelected
+                                      ? "bg-[#D4AF37]/20 border-[#D4AF37] text-[#D4AF37] shadow-sm"
+                                      : "bg-[#0F0F0F] border-stone-800 text-stone-400 hover:border-stone-600 hover:text-stone-200"
+                                  }`}
+                                >
+                                  <span>{mod.icon || "✨"}</span>
+                                  <span>{mod.shortName || mod.name}</span>
+                                  <span className="text-[10px] opacity-80">
+                                    +{mod.price / 1000}k
+                                  </span>
+                                  {isSelected && <Check className="w-3 h-3 text-[#D4AF37]" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Card Body */}
-                  <div className="p-4">
-                    <h3 className="font-extrabold text-base text-stone-900 group-hover:text-amber-700 transition line-clamp-1">
-                      {product.name}
-                    </h3>
-                    <p className="text-xs text-stone-500 mt-1 line-clamp-2 leading-relaxed">
-                      {product.description}
-                    </p>
+                  {/* Card Footer: Dynamic Price + Add to Cart */}
+                  <div className="px-5 pb-5 pt-3 border-t border-stone-800/80 flex items-center justify-between gap-2">
+                    <div>
+                      {activeModsSum > 0 ? (
+                        <div className="text-[10px] text-[#2DD4BF] font-bold">
+                          Asosiy: {formatMoney(product.price)} + Qo'shimcha:{" "}
+                          {formatMoney(activeModsSum)}
+                        </div>
+                      ) : (
+                        product.oldPrice && (
+                          <div className="text-[11px] text-stone-500 line-through">
+                            {formatMoney(product.oldPrice, config.currency)}
+                          </div>
+                        )
+                      )}
+                      <div className="font-serif-heritage text-xl font-black text-[#D4AF37]">
+                        {formatMoney(liveCardPrice, config.currency)}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAddCardWithToggles(product)}
+                        disabled={!product.inStock}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#C85A32] text-[#0F0F0F] text-xs font-black flex items-center gap-1.5 shadow-lg hover:brightness-110 transition cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Savatga qo'shish</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        </section>
 
-                {/* Price & Action Footer */}
-                <div className="px-4 pb-4 pt-2 flex items-center justify-between border-t border-stone-100">
-                  <div>
-                    {product.oldPrice && (
-                      <div className="text-[11px] text-stone-400 line-through">
-                        {formatMoney(product.oldPrice, config.currency)}
+        {/* =====================================================================
+            4. OSHPAZLAR VA SIRI (SCROLLYTELLING INTERACTIVE TIMELINE)
+           ===================================================================== */}
+        <section
+          id="oshpazlar-siri"
+          className="rounded-[32px] border border-[#D4AF37]/30 bg-gradient-to-br from-[#141210] via-[#0F0F0F] to-[#17130F] p-6 sm:p-10 shadow-2xl space-y-8"
+        >
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-stone-800 pb-6">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#C85A32] mb-1">
+                <ChefHat className="w-4 h-4 text-[#D4AF37]" />
+                <span>OSHPAZLAR VA SIRI • SCROLLYTELLING TIMELINE</span>
+              </div>
+              <h2 className="font-serif-heritage text-2xl sm:text-4xl font-black text-white">
+                Cho'yan Qozondan Sopol Lagangacha — 4 Muqaddas Bosqich
+              </h2>
+              <p className="text-stone-400 text-xs sm:text-sm mt-1">
+                Har kuni tonggi soat 05:30 da boshlanadigan haqiqiy Toshkent va Farg'ona oshpazlik
+                maktabi sirlari bilan tanishing.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 bg-[#161616] px-4 py-2.5 rounded-2xl border border-[#D4AF37]/30 text-xs font-bold text-[#D4AF37]">
+              <Award className="w-4 h-4" />
+              <span>Bosh Oshpaz: Usta Jamshid (32 yillik tajriba)</span>
+            </div>
+          </div>
+
+          {/* Interactive Timeline Selector Tabs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {SCROLLYTELLING_STEPS.map((st, idx) => {
+              const active = activeStoryStep === idx;
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => {
+                    sound.playPosTap();
+                    setActiveStoryStep(idx);
+                  }}
+                  className={`p-4 rounded-2xl border text-left transition cursor-pointer relative overflow-hidden ${
+                    active
+                      ? "bg-gradient-to-br from-[#231D14] to-[#161616] border-[#D4AF37] shadow-lg"
+                      : "bg-[#161616]/70 border-stone-800 hover:border-stone-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-cinzel text-2xl font-black text-[#D4AF37]">
+                      {st.stepNum}
+                    </span>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-[#C85A32]/20 text-[#FDBA74] border border-[#C85A32]/40">
+                      🌡️ {st.temp}
+                    </span>
+                  </div>
+                  <div className="font-serif-heritage font-bold text-sm text-white">
+                    {st.title}
+                  </div>
+                  <div className="text-[11px] text-stone-400 mt-1">🕒 {st.duration}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Stage Deep-Dive Showcase */}
+          {SCROLLYTELLING_STEPS[activeStoryStep] && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center bg-[#161616] rounded-3xl p-5 sm:p-8 border border-[#D4AF37]/30">
+              <div className="lg:col-span-5 relative h-64 sm:h-80 rounded-2xl overflow-hidden border border-[#D4AF37]/30">
+                <img
+                  src={SCROLLYTELLING_STEPS[activeStoryStep].image}
+                  alt={SCROLLYTELLING_STEPS[activeStoryStep].title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="steam-wisp-1 absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white/25 to-transparent blur-2xl pointer-events-none" />
+                <span className="absolute top-3 left-3 bg-[#0F0F0F]/90 text-[#D4AF37] border border-[#D4AF37]/50 text-xs font-black px-3 py-1 rounded-full">
+                  {SCROLLYTELLING_STEPS[activeStoryStep].badge}
+                </span>
+              </div>
+
+              <div className="lg:col-span-7 space-y-4">
+                <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-[#2DD4BF]">
+                  <span>⏱️ Vaqti: {SCROLLYTELLING_STEPS[activeStoryStep].duration}</span>
+                  <span>•</span>
+                  <span>🔥 Qozon harorati: {SCROLLYTELLING_STEPS[activeStoryStep].temp}</span>
+                </div>
+
+                <h3 className="font-serif-heritage text-2xl sm:text-3xl font-black text-white">
+                  {SCROLLYTELLING_STEPS[activeStoryStep].title}
+                </h3>
+
+                <p className="text-stone-300 text-sm sm:text-base leading-relaxed">
+                  {SCROLLYTELLING_STEPS[activeStoryStep].description}
+                </p>
+
+                <div className="p-4 rounded-2xl bg-[#0F0F0F] border-l-4 border-[#D4AF37] text-xs sm:text-sm text-amber-100">
+                  💡 <strong>{SCROLLYTELLING_STEPS[activeStoryStep].secret}</strong>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="flex gap-2">
+                    {SCROLLYTELLING_STEPS.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveStoryStep(idx)}
+                        className={`h-2 rounded-full transition-all cursor-pointer ${
+                          activeStoryStep === idx ? "w-8 bg-[#D4AF37]" : "w-2 bg-stone-700"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveStoryStep((s) => (s + 1) % SCROLLYTELLING_STEPS.length)
+                    }
+                    className="text-xs font-extrabold text-[#D4AF37] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Keyingi bosqich</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* =====================================================================
+            5. TEZKOR BUYURTMA, SOPOL LAGAN / TERMOS TANLOVI, JOY BAND QILISH VA FILIAL XARITASI
+           ===================================================================== */}
+        <section id="filiallar-bron" className="space-y-8">
+          {/* Packaging Comparison Banner (Sopol Lagan vs Termos-idish) */}
+          <div className="rounded-3xl border border-[#008B8B]/45 bg-gradient-to-r from-[#101C1C] via-[#141414] to-[#1C1510] p-6 sm:p-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div>
+                <span className="text-xs font-extrabold uppercase tracking-wider text-[#2DD4BF]">
+                  ISSIQ YETKAZIB BERISH TEXNOLOGIYASI
+                </span>
+                <h2 className="font-serif-heritage text-2xl sm:text-3xl font-black text-white mt-1">
+                  Oshni Sopol Laganda Yoki Maxsus Termos-Idishda Qabul Qiling
+                </h2>
+              </div>
+              <div className="bg-[#0F0F0F] px-4 py-2.5 rounded-2xl border border-[#D4AF37]/40 text-xs font-bold text-[#D4AF37]">
+                🔥 Kafolat: Oshingiz 85°C dan past bo'lsa — buyurtma bepul!
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {PACKAGING_OPTIONS.map((pk) => {
+                const active = packagingType === pk.id;
+                return (
+                  <div
+                    key={pk.id}
+                    onClick={() => {
+                      sound.playPosTap();
+                      setPackagingType(pk.id);
+                      showToast(`Tanlandi: ${pk.name}`);
+                    }}
+                    className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      active
+                        ? "bg-[#1C1914] border-[#D4AF37] shadow-xl"
+                        : "bg-[#141414] border-stone-800 hover:border-stone-700"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-3xl">{pk.icon}</span>
+                        <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-[#D4AF37]/20 text-[#D4AF37]">
+                          {pk.badge}
+                        </span>
                       </div>
-                    )}
-                    <div className="text-base font-black text-stone-900">
-                      {formatMoney(product.price, config.currency)}
+                      <h3 className="font-serif-heritage font-bold text-lg text-white">
+                        {pk.name}
+                      </h3>
+                      <p className="text-xs text-stone-400 mt-1 leading-relaxed">{pk.subtitle}</p>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-stone-800 flex items-center justify-between text-xs font-bold">
+                      <span className="text-[#2DD4BF]">🌡️ {pk.heatRetention}</span>
+                      <span className="text-[#D4AF37]">
+                        {pk.fee === 0 ? "Bepul" : `+${formatMoney(pk.fee)}`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2-Column Grid: Table/VIP Room Reservation + Interactive Branches Map */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Left: Joy Band Qilish (VIP Xona / So'ri / Stol Bron Qilish) */}
+            <div className="lg:col-span-5 bg-[#161616] rounded-3xl border border-[#D4AF37]/35 p-6 sm:p-8 space-y-5">
+              <div>
+                <div className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-[#D4AF37]">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>JOY BAND QILISH • VIP KABINALAR VA SO'RILAR</span>
+                </div>
+                <h3 className="font-serif-heritage text-2xl font-black text-white mt-1">
+                  Mehmon Kutish Uchun Stol Band Qiling
+                </h3>
+                <p className="text-xs text-stone-400 mt-1">
+                  Siz kelishingizga qozondan yangi uzilgan osh va choy tayyor turadi.
+                </p>
+              </div>
+
+              {bookingSuccess ? (
+                <div className="p-5 rounded-2xl bg-emerald-950/40 border border-emerald-500/50 space-y-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-emerald-300 font-black text-sm">
+                      ✅ Joyingiz Band Qilindi!
+                    </span>
+                    <span className="bg-emerald-500 text-stone-950 font-black px-2.5 py-1 rounded-lg">
+                      {bookingSuccess.code}
+                    </span>
+                  </div>
+                  <div className="text-stone-300 space-y-1">
+                    <div>👤 Mehmon: <strong>{bookingSuccess.name}</strong></div>
+                    <div>👥 Soni: <strong>{bookingSuccess.guests} kishi</strong></div>
+                    <div>🕒 Vaqti: <strong>{bookingSuccess.time}</strong></div>
+                    <div>🏛️ Joy: <strong>{bookingSuccess.zone}</strong></div>
+                    <div>📍 Filial: <strong>{bookingSuccess.branch}</strong></div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setBookingSuccess(null)}
+                    className="w-full py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-white font-bold cursor-pointer"
+                  >
+                    Yana boshqa joy band qilish
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleReservationSubmit} className="space-y-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-400 mb-1">
+                      Ismingiz
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bookingName}
+                      onChange={(e) => setBookingName(e.target.value)}
+                      placeholder="Masalan: Sardorbek Karimov"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#0F0F0F] border border-stone-800 text-xs font-semibold text-white focus:outline-none focus:border-[#D4AF37]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-400 mb-1">
+                        Telefon raqamingiz
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={bookingPhone}
+                        onChange={(e) => setBookingPhone(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0F0F0F] border border-stone-800 text-xs font-semibold text-white focus:outline-none focus:border-[#D4AF37]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-400 mb-1">
+                        Mehmonlar soni
+                      </label>
+                      <select
+                        value={bookingGuests}
+                        onChange={(e) => setBookingGuests(Number(e.target.value))}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0F0F0F] border border-stone-800 text-xs font-semibold text-white focus:outline-none focus:border-[#D4AF37]"
+                      >
+                        {[2, 4, 6, 8, 10, 12, 16, 20].map((n) => (
+                          <option key={n} value={n}>
+                            {n} kishi
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-400 mb-1">
+                        Tashrif vaqti
+                      </label>
+                      <select
+                        value={bookingTime}
+                        onChange={(e) => setBookingTime(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0F0F0F] border border-stone-800 text-xs font-semibold text-white focus:outline-none focus:border-[#D4AF37]"
+                      >
+                        <option>07:30 (Nahorgi To'y Oshi)</option>
+                        <option>12:00 (1-Qozon Ochilishi)</option>
+                        <option>12:30 (Tushlik — Issiq Qozon)</option>
+                        <option>13:30 (2-Qozon Choyxona Oshi)</option>
+                        <option>18:30 (Kechki Devzira & Zig'ir)</option>
+                        <option>20:00 (Kechki Oilaviy Bazm)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-400 mb-1">
+                        Zal yoki VIP Xona
+                      </label>
+                      <select
+                        value={bookingZone}
+                        onChange={(e) => setBookingZone(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0F0F0F] border border-stone-800 text-xs font-semibold text-white focus:outline-none focus:border-[#D4AF37]"
+                      >
+                        {tables.map((t) => (
+                          <option key={t.id} value={`${t.number} (${t.zone})`}>
+                            {t.number} — {t.seats} o'rinli
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
                   <button
-                    type="button"
-                    disabled={!product.inStock}
-                    style={product.inStock ? { backgroundColor: config.themeColor } : {}}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer ${
-                      product.inStock
-                        ? "text-white shadow-md hover:opacity-90"
-                        : "bg-stone-200 text-stone-500 cursor-not-allowed"
-                    }`}
+                    type="submit"
+                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#C85A32] text-[#0F0F0F] font-black text-xs uppercase tracking-wider shadow-lg hover:brightness-110 transition cursor-pointer"
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>{hasModifiers ? "Yig'ish" : "Savatga"}</span>
+                    🏺 Joyni Tasdiqlash va Band Qilish
                   </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 5. Branches & Working Hours Info Section */}
-        <div className="bg-white rounded-3xl border border-stone-200 p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-xl font-black text-stone-900">
-                📍 {config.brandName} — Filiallarimiz va Qozonlar Holati
-              </h2>
-              <p className="text-xs text-stone-500 mt-1">
-                Har bir filialimizda issiq osh, oilaviy zal, VIP xonalar va o'zi bilan olib ketish (Feed-Up Express) nuqtalari mavjud
-              </p>
+                </form>
+              )}
             </div>
-            <div className="flex items-center gap-2 text-xs font-bold text-stone-700 bg-stone-100 px-4 py-2 rounded-xl">
-              <Phone className="w-4 h-4 text-amber-600" />
-              <span>Yagona Call-Markaz: {config.phone}</span>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {branches.map((b) => (
-              <div
-                key={b.id}
-                onClick={() => setSelectedBranchId(b.id)}
-                className={`p-4 rounded-2xl border-2 transition cursor-pointer ${
-                  selectedBranchId === b.id
-                    ? "border-amber-500 bg-amber-50/40"
-                    : "border-stone-200 hover:border-stone-300"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                    {b.qozonStatus}
+            {/* Right: Interactive Branches Map & Live Qozon Locations */}
+            <div className="lg:col-span-7 bg-[#161616] rounded-3xl border border-stone-800 p-6 sm:p-8 flex flex-col justify-between space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#2DD4BF]">
+                    TOSHKENT BO'YLAB FILIALLAR XARITASI
                   </span>
-                  <span className="text-xs font-semibold text-stone-500">🕒 {b.hours}</span>
+                  <h3 className="font-serif-heritage text-2xl font-black text-white mt-0.5">
+                    📍 {config.brandName} — Filiallar va Qozonlar
+                  </h3>
                 </div>
-                <h3 className="font-bold text-sm text-stone-900">{b.name}</h3>
-                <p className="text-xs text-stone-500 mt-1">{b.address}</p>
-                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-stone-200/70 text-xs font-semibold text-stone-700">
-                  <span>📞 {b.phone}</span>
-                  <span className="text-amber-700">🛵 {b.deliveryTime}</span>
+                <div className="text-xs font-bold text-[#D4AF37] bg-[#0F0F0F] px-3.5 py-2 rounded-xl border border-[#D4AF37]/30">
+                  📞 Call-Markaz: {config.phone}
                 </div>
               </div>
-            ))}
+
+              {/* Stylized Interactive Tashkent Map Canvas */}
+              <div className="relative h-52 rounded-2xl bg-[#0C1214] border border-[#008B8B]/40 overflow-hidden p-4 flex flex-col justify-between">
+                {/* Grid & River Map Vector Illustration */}
+                <svg
+                  className="absolute inset-0 w-full h-full opacity-25 pointer-events-none"
+                  viewBox="0 0 600 220"
+                  fill="none"
+                >
+                  <path
+                    d="M0 40 H600 M0 90 H600 M0 140 H600 M0 190 H600 M90 0 V220 M210 0 V220 M330 0 V220 M450 0 V220"
+                    stroke="#008B8B"
+                    strokeWidth="0.7"
+                  />
+                  {/* Bo'zsuv canal curve */}
+                  <path
+                    d="M40 210 C180 150, 260 110, 390 20 C450 -10, 520 40, 590 10"
+                    stroke="#2DD4BF"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+
+                <div className="relative z-10 flex items-center justify-between">
+                  <span className="bg-[#0F0F0F]/90 text-[#2DD4BF] border border-[#008B8B]/50 text-[11px] font-bold px-3 py-1 rounded-full">
+                    🗺️ Toshkent sh. • GPS Express Kur'erlar Faol
+                  </span>
+                  <span className="bg-[#0F0F0F]/90 text-[#D4AF37] text-[11px] font-bold px-3 py-1 rounded-full border border-[#D4AF37]/40">
+                    🛵 {selectedBranch?.deliveryTime} da yetkaziladi
+                  </span>
+                </div>
+
+                {/* Map Pins */}
+                <div className="relative z-10 flex flex-wrap items-center justify-around gap-2 my-auto">
+                  {branches.map((b, i) => {
+                    const active = selectedBranchId === b.id;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => {
+                          sound.playPosTap();
+                          setSelectedBranchId(b.id);
+                        }}
+                        className={`px-3.5 py-2 rounded-2xl border text-left transition flex items-center gap-2 cursor-pointer ${
+                          active
+                            ? "bg-[#D4AF37] text-[#0F0F0F] border-white shadow-[0_0_25px_rgba(212,175,55,0.6)] scale-105"
+                            : "bg-[#0F0F0F]/90 text-stone-200 border-[#D4AF37]/40 hover:border-[#D4AF37]"
+                        }`}
+                      >
+                        <MapPin className="w-4 h-4 shrink-0" />
+                        <div>
+                          <div className="text-xs font-black leading-none">
+                            {i + 1}. {b.name.split("(")[0]}
+                          </div>
+                          <div
+                            className={`text-[10px] font-bold mt-0.5 ${
+                              active ? "text-[#0F0F0F]" : "text-emerald-400"
+                            }`}
+                          >
+                            {b.qozonStatus}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="relative z-10 flex items-center justify-between text-[11px] text-stone-300 bg-[#0F0F0F]/85 px-3 py-1.5 rounded-xl border border-stone-800">
+                  <span>
+                    Tanlangan filial: <strong className="text-[#D4AF37]">{selectedBranch?.name}</strong>
+                  </span>
+                  <span className="text-emerald-400 font-bold">🕒 {selectedBranch?.hours}</span>
+                </div>
+              </div>
+
+              {/* Branch Cards List */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {branches.map((b) => {
+                  const active = selectedBranchId === b.id;
+                  return (
+                    <div
+                      key={b.id}
+                      onClick={() => setSelectedBranchId(b.id)}
+                      className={`p-3.5 rounded-2xl border transition cursor-pointer ${
+                        active
+                          ? "bg-[#1F1A12] border-[#D4AF37]"
+                          : "bg-[#0F0F0F] border-stone-800 hover:border-stone-700"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-bold text-emerald-400 mb-1">
+                        <span>{b.qozonStatus}</span>
+                        <span className="text-stone-400">{b.deliveryTime}</span>
+                      </div>
+                      <div className="font-bold text-xs text-white">{b.name}</div>
+                      <div className="text-[11px] text-stone-400 mt-1 line-clamp-2">{b.address}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Floating Bottom Cart Bar on Mobile */}
-      {cart.length > 0 && (
-        <div className="fixed bottom-4 inset-x-4 max-w-lg mx-auto z-30 md:hidden">
+      {/* Floating Bottom Mobile Bar (100% Mobile-First Experience) */}
+      <div className="fixed bottom-3 inset-x-3 z-30 md:hidden flex flex-col gap-2">
+        {cart.length > 0 && (
           <button
             type="button"
             onClick={() => setIsCartOpen(true)}
-            style={{ backgroundColor: config.themeColor }}
-            className="w-full py-4 px-5 rounded-2xl text-white font-black text-sm shadow-2xl flex items-center justify-between cursor-pointer"
+            className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#C85A32] to-[#D4AF37] text-[#0F0F0F] font-black text-sm shadow-2xl flex items-center justify-between cursor-pointer"
           >
             <div className="flex items-center gap-2">
               <ShoppingBag className="w-5 h-5" />
-              <span>Savatni rasmiylashtirish ({totalItemsCount} ta)</span>
+              <span>Savatchani rasmiylashtirish ({totalItemsCount} ta)</span>
             </div>
             <span>{formatMoney(grandTotal, config.currency)} →</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* ================= STORY VIEWER MODAL ================= */}
-      {activeStory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="relative max-w-md w-full rounded-3xl overflow-hidden bg-stone-900 text-white shadow-2xl border border-white/15">
-            <img
-              src={activeStory.image}
-              alt={activeStory.title}
-              className="w-full h-64 object-cover"
-            />
-            <button
-              onClick={() => setActiveStory(null)}
-              className="absolute top-4 right-4 p-2 rounded-full bg-black/60 text-white hover:bg-black cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="p-6 space-y-4">
-              <span
-                style={{ backgroundColor: config.themeColor }}
-                className="inline-block text-xs font-black px-3 py-1 rounded-full"
-              >
-                {activeStory.badge}
-              </span>
-              <h3 className="text-2xl font-black">{activeStory.title}</h3>
-              <p className="text-sm text-stone-300 leading-relaxed">{activeStory.description}</p>
-
-              {activeStory.promoCode && (
-                <div className="bg-white/10 border border-white/20 rounded-2xl p-3.5 flex items-center justify-between">
-                  <div>
-                    <div className="text-[10px] uppercase text-stone-400">Maxsus promokod</div>
-                    <div className="text-lg font-black text-amber-400 tracking-wider">
-                      {activeStory.promoCode}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPromoInput(activeStory.promoCode);
-                      showToast(`"${activeStory.promoCode}" promokodi savatga nusxalandi!`);
-                      setActiveStory(null);
-                      setIsCartOpen(true);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-black text-xs flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Qo'llash</span>
-                  </button>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (activeStory.linkedCategoryId) setActiveCategory(activeStory.linkedCategoryId);
-                  setActiveStory(null);
-                }}
-                style={{ backgroundColor: config.themeColor }}
-                className="w-full py-3.5 rounded-xl font-extrabold text-sm text-white cursor-pointer"
-              >
-                Taomlarni ko'rish
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= PRODUCT MODIFIER MODAL ================= */}
+      {/* Product Modifier Modal */}
       {modifierProduct && (
         <ProductModifierModal
           product={modifierProduct}
-          config={config}
+          currency={config.currency}
           onClose={() => setModifierProduct(null)}
-          onConfirm={handleAddToCart}
+          onAdd={handleAddToCart}
         />
       )}
 
-      {/* ================= CART & CHECKOUT DRAWER ================= */}
+      {/* Cart & Checkout Drawer */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-lg h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex justify-end">
+          <div className="bg-[#141414] text-stone-100 w-full max-w-lg h-full flex flex-col justify-between shadow-2xl overflow-hidden border-l border-[#D4AF37]/30">
             {/* Drawer Header */}
-            <div className="px-6 py-4 bg-stone-900 text-white flex items-center justify-between">
+            <div className="p-5 border-b border-stone-800 flex items-center justify-between bg-[#0F0F0F]">
               <div className="flex items-center gap-2.5">
-                <ShoppingBag className="w-5 h-5 text-amber-400" />
-                <div>
-                  <h3 className="font-black text-base">Buyurtma Savati</h3>
-                  <p className="text-[11px] text-stone-400">
-                    {orderType === "delivery"
-                      ? "🛵 Yetkazib berish"
-                      : orderType === "pickup"
-                      ? "🛍️ Filialdan olib ketish"
-                      : "🍽️ Zalda stolga buyurtma"}
-                  </p>
-                </div>
+                <ShoppingBag className="w-5 h-5 text-[#D4AF37]" />
+                <h3 className="font-serif-heritage font-black text-lg text-white">
+                  Shohona Savatcha ({totalItemsCount})
+                </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsCartOpen(false)}
-                className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 cursor-pointer"
+                className="w-9 h-9 rounded-full bg-stone-800 hover:bg-stone-700 flex items-center justify-center cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 text-stone-300" />
               </button>
             </div>
 
-            {cart.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                <div className="text-5xl mb-3">🍛</div>
-                <h4 className="font-black text-lg text-stone-800">Savatingiz hozircha bo'sh</h4>
-                <p className="text-xs text-stone-500 mt-1 max-w-xs">
-                  Issiq To'y oshi, Samarqand zig'ir oshi yoki tejamkor Feed-Up Kombo setlarimizdan tanlang!
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setIsCartOpen(false)}
-                  style={{ backgroundColor: config.themeColor }}
-                  className="mt-5 px-6 py-3 rounded-xl text-white font-bold text-xs cursor-pointer"
-                >
-                  Menyuga qaytish
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handlePlaceOrder} className="flex-1 overflow-y-auto p-5 space-y-5">
-                {/* Free delivery progress bar */}
-                {orderType === "delivery" && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs">
-                    {subtotal >= config.freeDeliveryMin ? (
-                      <div className="font-bold text-emerald-700 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Tabriklaymiz! Siz uchun yetkazib berish BEPUL! 🎉</span>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="flex justify-between font-semibold text-stone-700 mb-1.5">
-                          <span>Bepul yetkazish uchun yana:</span>
-                          <span className="font-black text-amber-800">
-                            {formatMoney(config.freeDeliveryMin - subtotal, config.currency)}
-                          </span>
-                        </div>
-                        <div className="w-full h-2 bg-amber-200 rounded-full overflow-hidden">
-                          <div
-                            style={{
-                              width: `${Math.min(100, (subtotal / config.freeDeliveryMin) * 100)}%`,
-                              backgroundColor: config.themeColor
-                            }}
-                            className="h-full rounded-full transition-all"
-                          />
-                        </div>
-                      </div>
-                    )}
+            {/* Drawer Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {cart.length === 0 ? (
+                <div className="text-center py-16 space-y-3">
+                  <div className="text-5xl">🏺</div>
+                  <div className="font-serif-heritage font-bold text-lg text-white">
+                    Savatchangiz hozircha bo'sh
                   </div>
-                )}
-
-                {/* Cart Items List */}
-                <div className="space-y-3">
-                  {cart.map((item) => (
-                    <div
-                      key={item.cartItemId}
-                      className="flex gap-3 p-3 rounded-2xl border border-stone-200 bg-stone-50/60"
-                    >
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-16 h-16 rounded-xl object-cover shrink-0 bg-stone-200"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-xs text-stone-900 truncate">{item.name}</div>
-                        {item.variantName && (
-                          <div className="text-[11px] text-amber-800 font-medium">{item.variantName}</div>
-                        )}
-                        {item.modifiers && item.modifiers.length > 0 && (
-                          <div className="text-[10px] text-stone-500">
-                            + {item.modifiers.map((m) => m.name).join(", ")}
-                          </div>
-                        )}
-                        {item.note && (
-                          <div className="text-[10px] italic text-stone-500">Izoh: {item.note}</div>
-                        )}
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="font-black text-xs text-stone-900">
-                            {formatMoney(item.totalPrice, config.currency)}
-                          </span>
-                          <div className="flex items-center gap-1.5 bg-white border border-stone-200 rounded-lg px-1.5 py-0.5">
-                            <button
-                              type="button"
-                              onClick={() => updateCartQty(item.cartItemId, -1)}
-                              className="p-1 text-stone-600 hover:text-red-600 cursor-pointer"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="text-xs font-bold w-5 text-center">{item.quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() => updateCartQty(item.cartItemId, 1)}
-                              className="p-1 text-stone-600 hover:text-emerald-600 cursor-pointer"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                  <p className="text-xs text-stone-400 max-w-xs mx-auto">
+                    Osh Kalkulyatori yordamida mehmonlar soniga qarab hisoblang yoki menyudan
+                    issiq osh tanlang!
+                  </p>
                 </div>
+              ) : (
+                <>
+                  {/* Cart Items */}
+                  <div className="space-y-3">
+                    {cart.map((item) => (
+                      <div
+                        key={item.cartItemId}
+                        className="flex gap-3 p-3.5 rounded-2xl bg-[#1C1C1C] border border-stone-800"
+                      >
+                        {item.image && (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-16 h-16 rounded-xl object-cover shrink-0 border border-[#D4AF37]/30"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-bold text-sm text-white truncate">{item.name}</h4>
+                            <button
+                              type="button"
+                              onClick={() => updateCartQty(item.cartItemId, -item.quantity)}
+                              className="text-stone-500 hover:text-red-400 cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          {item.variantName && (
+                            <div className="text-[11px] font-semibold text-[#D4AF37]">
+                              {item.variantName}
+                            </div>
+                          )}
+                          {item.modifiers && item.modifiers.length > 0 && (
+                            <div className="text-[11px] text-stone-400 mt-0.5">
+                              + {item.modifiers.map((m) => m.name).join(", ")}
+                            </div>
+                          )}
 
-                {/* Feed Up Style Upsell: Osh yoniga qo'shing */}
-                {upsellProducts.length > 0 && (
-                  <div className="bg-stone-100 rounded-2xl p-3.5">
-                    <div className="text-xs font-extrabold text-stone-700 mb-2.5 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Osh bilan juda mos keladi (1-bosishda qo'shish):</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {upsellProducts.map((up) => (
-                        <button
-                          key={up.id}
-                          type="button"
-                          onClick={() =>
-                            handleAddToCart({
-                              productId: up.id,
-                              name: up.name,
-                              image: up.image,
-                              variantName: "",
-                              modifiers: [],
-                              quantity: 1,
-                              unitPrice: up.price,
-                              totalPrice: up.price,
-                              note: ""
-                            })
-                          }
-                          className="flex items-center justify-between bg-white p-2 rounded-xl border border-stone-200 hover:border-amber-500 text-left transition cursor-pointer"
-                        >
-                          <div className="min-w-0 pr-1">
-                            <div className="text-[11px] font-bold text-stone-800 truncate">{up.name}</div>
-                            <div className="text-[10px] font-semibold text-amber-700">
-                              +{formatMoney(up.price, config.currency)}
+                          <div className="flex items-center justify-between mt-2.5">
+                            <div className="font-extrabold text-sm text-[#D4AF37]">
+                              {formatMoney(item.totalPrice, config.currency)}
+                            </div>
+                            <div className="flex items-center gap-2 bg-[#0F0F0F] border border-stone-700 rounded-xl px-2 py-1">
+                              <button
+                                type="button"
+                                onClick={() => updateCartQty(item.cartItemId, -1)}
+                                className="w-6 h-6 rounded-lg hover:bg-stone-800 flex items-center justify-center cursor-pointer"
+                              >
+                                <Minus className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="text-xs font-black w-5 text-center">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateCartQty(item.cartItemId, 1)}
+                                className="w-6 h-6 rounded-lg hover:bg-stone-800 flex items-center justify-center cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
-                          <Plus className="w-4 h-4 text-amber-600 shrink-0" />
-                        </button>
-                      ))}
-                    </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
 
-                {/* Promo Code & Bonus Cashback */}
-                <div className="space-y-2.5">
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Tag className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  {/* Packaging Selector inside Drawer */}
+                  {orderType !== "dine_in" && (
+                    <div className="p-3.5 rounded-2xl bg-[#0F0F0F] border border-[#008B8B]/40 space-y-2">
+                      <label className="block text-xs font-extrabold text-[#2DD4BF]">
+                        🏺 Qanday idishda yetkazilsin?
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {PACKAGING_OPTIONS.map((pk) => (
+                          <button
+                            key={pk.id}
+                            type="button"
+                            onClick={() => setPackagingType(pk.id)}
+                            className={`p-2 rounded-xl border text-left transition cursor-pointer ${
+                              packagingType === pk.id
+                                ? "bg-[#D4AF37]/20 border-[#D4AF37] text-white"
+                                : "bg-[#161616] border-stone-800 text-stone-400"
+                            }`}
+                          >
+                            <div className="text-sm">{pk.icon}</div>
+                            <div className="text-[11px] font-bold leading-tight mt-0.5">
+                              {pk.name.split(" ")[0]} {pk.name.split(" ")[1]}
+                            </div>
+                            <div className="text-[10px] text-[#D4AF37] mt-0.5">
+                              {pk.fee === 0 ? "Bepul" : `+${pk.fee / 1000}k`}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Promo Code */}
+                  <div className="p-3.5 rounded-2xl bg-[#0F0F0F] border border-stone-800 space-y-2">
+                    <div className="flex gap-2">
                       <input
                         type="text"
                         value={promoInput}
                         onChange={(e) => setPromoInput(e.target.value)}
-                        placeholder="Promokod (OSH20, FEEDUP)"
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-200 text-xs font-bold uppercase focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        placeholder="Promokod (OSH20, MEROS, FEEDUP)"
+                        className="flex-1 bg-[#161616] border border-stone-700 rounded-xl px-3 py-2 text-xs font-bold uppercase text-white focus:outline-none focus:border-[#D4AF37]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyPromo}
+                        className="px-4 py-2 rounded-xl bg-[#D4AF37] text-[#0F0F0F] text-xs font-black cursor-pointer"
+                      >
+                        Qo'llash
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Customer Info Form */}
+                  <form id="checkout-form" onSubmit={handlePlaceOrder} className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <input
+                        type="text"
+                        required
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Ismingiz *"
+                        className="px-3.5 py-2.5 bg-[#0F0F0F] border border-stone-800 rounded-xl text-xs font-medium text-white focus:outline-none focus:border-[#D4AF37]"
+                      />
+                      <input
+                        type="text"
+                        required
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="Telefon raqamingiz *"
+                        className="px-3.5 py-2.5 bg-[#0F0F0F] border border-stone-800 rounded-xl text-xs font-medium text-white focus:outline-none focus:border-[#D4AF37]"
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleApplyPromo}
-                      className="px-4 py-2.5 rounded-xl bg-stone-900 text-white text-xs font-bold hover:bg-stone-800 cursor-pointer"
-                    >
-                      Qo'llash
-                    </button>
-                  </div>
 
-                  <label className="flex items-center justify-between p-3 rounded-xl border border-amber-200 bg-amber-50/60 cursor-pointer">
-                    <div className="flex items-center gap-2">
-                      <Gift className="w-4 h-4 text-amber-600" />
-                      <div>
-                        <div className="text-xs font-bold text-stone-800">
-                          Keshbek bonusni ishlatish
-                        </div>
-                        <div className="text-[10px] text-stone-500">
-                          Mavjud: {formatMoney(loyaltyPoints, config.currency)}
-                        </div>
-                      </div>
+                    {orderType === "delivery" && (
+                      <input
+                        type="text"
+                        required
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        placeholder="Yetkazib berish manzili *"
+                        className="w-full px-3.5 py-2.5 bg-[#0F0F0F] border border-stone-800 rounded-xl text-xs font-medium text-white focus:outline-none focus:border-[#D4AF37]"
+                      />
+                    )}
+
+                    {/* Payment Methods */}
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { id: "click", label: "Click" },
+                        { id: "payme", label: "Payme" },
+                        { id: "uzum", label: "Uzum" },
+                        { id: "cash", label: "Naqd" }
+                      ].map((pm) => (
+                        <button
+                          key={pm.id}
+                          type="button"
+                          onClick={() => setPaymentMethod(pm.id)}
+                          className={`py-2 rounded-xl text-xs font-extrabold border transition cursor-pointer ${
+                            paymentMethod === pm.id
+                              ? "bg-[#D4AF37] text-[#0F0F0F] border-[#D4AF37]"
+                              : "bg-[#0F0F0F] text-stone-400 border-stone-800"
+                          }`}
+                        >
+                          {pm.label}
+                        </button>
+                      ))}
                     </div>
-                    <input
-                      type="checkbox"
-                      checked={useBonus}
-                      onChange={(e) => setUseBonus(e.target.checked)}
-                      className="w-4 h-4 accent-amber-600 rounded cursor-pointer"
-                    />
-                  </label>
-                </div>
+                  </form>
+                </>
+              )}
+            </div>
 
-                {/* Customer Details Form */}
-                <div className="space-y-3 pt-2 border-t border-stone-200">
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-stone-500">
-                    Qabul qiluvchi ma'lumotlari
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <input
-                      type="text"
-                      required
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Ismingiz *"
-                      className="px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                    <input
-                      type="tel"
-                      required
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="Telefon raqamingiz *"
-                      className="px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
+            {/* Drawer Footer */}
+            {cart.length > 0 && (
+              <div className="p-5 border-t border-stone-800 bg-[#0F0F0F] space-y-3">
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between text-stone-400">
+                    <span>Taomlar:</span>
+                    <span className="font-bold text-white">
+                      {formatMoney(subtotal, config.currency)}
+                    </span>
                   </div>
-                  {orderType === "delivery" && (
-                    <input
-                      type="text"
-                      required
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                      placeholder="Aniq manzil (Ko'cha, uy, xonadon, mo'ljal) *"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                  )}
-                  <input
-                    type="text"
-                    value={orderNote}
-                    onChange={(e) => setOrderNote(e.target.value)}
-                    placeholder="Kuryer yoki oshpaz uchun izoh (Domofon kodi va h.k.)"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                {/* Payment Method Selector */}
-                <div className="space-y-2">
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-stone-500">
-                    To'lov usulini tanlang
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: "click", label: "💙 CLICK Evolution" },
-                      { id: "payme", label: "🩵 Payme" },
-                      { id: "card", label: "💳 Uzcard / Humo" },
-                      { id: "cash", label: "💵 Naqd pulda" }
-                    ].map((pm) => (
-                      <button
-                        key={pm.id}
-                        type="button"
-                        onClick={() => setPaymentMethod(pm.id)}
-                        style={
-                          paymentMethod === pm.id
-                            ? { borderColor: config.themeColor, backgroundColor: `${config.themeColor}14` }
-                            : {}
-                        }
-                        className={`p-2.5 rounded-xl border-2 text-xs font-bold text-left transition cursor-pointer ${
-                          paymentMethod === pm.id ? "text-stone-900" : "border-stone-200 text-stone-600"
-                        }`}
-                      >
-                        {pm.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Totals Summary */}
-                <div className="bg-stone-100 rounded-2xl p-4 space-y-1.5 text-xs">
-                  <div className="flex justify-between text-stone-600">
-                    <span>Taomlar summasi:</span>
-                    <span className="font-semibold">{formatMoney(subtotal, config.currency)}</span>
-                  </div>
-                  {totalDiscount > 0 && (
-                    <div className="flex justify-between text-emerald-700 font-bold">
-                      <span>Chegirma va bonus:</span>
-                      <span>-{formatMoney(totalDiscount, config.currency)}</span>
+                  {packagingFee > 0 && (
+                    <div className="flex justify-between text-[#2DD4BF]">
+                      <span>{selectedPackagingObj.name}:</span>
+                      <span className="font-bold">
+                        +{formatMoney(packagingFee, config.currency)}
+                      </span>
                     </div>
                   )}
                   {deliveryFee > 0 && (
-                    <div className="flex justify-between text-stone-600">
+                    <div className="flex justify-between text-stone-400">
                       <span>Yetkazib berish:</span>
-                      <span className="font-semibold">+{formatMoney(deliveryFee, config.currency)}</span>
+                      <span className="font-bold text-white">
+                        {formatMoney(deliveryFee, config.currency)}
+                      </span>
                     </div>
                   )}
-                  {serviceFee > 0 && (
-                    <div className="flex justify-between text-stone-600">
-                      <span>Zal xizmati ({config.serviceChargePercent}%):</span>
-                      <span className="font-semibold">+{formatMoney(serviceFee, config.currency)}</span>
+                  {totalDiscount > 0 && (
+                    <div className="flex justify-between text-emerald-400 font-bold">
+                      <span>Chegirma:</span>
+                      <span>-{formatMoney(totalDiscount, config.currency)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-base font-black text-stone-900 pt-2 border-t border-stone-300">
+                  <div className="flex justify-between text-base font-black text-[#D4AF37] pt-2 border-t border-stone-800">
                     <span>Jami to'lov:</span>
                     <span>{formatMoney(grandTotal, config.currency)}</span>
                   </div>
@@ -1191,121 +2360,75 @@ export default function CustomerWebView({ onNavigateModule }) {
 
                 <button
                   type="submit"
+                  form="checkout-form"
                   disabled={isSubmitting}
-                  style={{ backgroundColor: config.themeColor }}
-                  className="w-full py-4 rounded-2xl text-white font-black text-sm shadow-xl hover:opacity-95 transition cursor-pointer"
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#C85A32] to-[#D4AF37] text-[#0F0F0F] font-black text-sm shadow-xl hover:brightness-110 transition cursor-pointer"
                 >
                   {isSubmitting
-                    ? "Buyurtma yuborilmoqda..."
+                    ? "Yuborilmoqda..."
                     : `Buyurtmani Tasdiqlash • ${formatMoney(grandTotal, config.currency)}`}
                 </button>
-              </form>
+              </div>
             )}
           </div>
         </div>
       )}
 
-      {/* ================= LIVE ORDER STATUS & QUEUE TRACKER MODAL ================= */}
+      {/* Live Order Tracker Modal */}
       {isTrackerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-stone-200">
-            <div className="px-6 py-4 bg-stone-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Navigation className="w-5 h-5 text-amber-400" />
-                <div>
-                  <h3 className="font-black text-base">Jonli Buyurtmalar va Elektron Navbat</h3>
-                  <p className="text-[11px] text-stone-400">
-                    POS Kassa va Oshxona (KDS) bilan real vaqtda sinxronlangan
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#161616] text-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-[#D4AF37]/40 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-800 pb-4">
+              <div>
+                <span className="text-xs font-extrabold uppercase text-[#D4AF37]">
+                  Real-Vaqt Monitoring
+                </span>
+                <h3 className="font-serif-heritage text-xl font-black text-white">
+                  Buyurtmalar va Fiskal Cheklar
+                </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsTrackerOpen(false)}
-                className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 cursor-pointer"
+                className="w-9 h-9 rounded-full bg-stone-800 hover:bg-stone-700 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 max-h-[75vh] overflow-y-auto space-y-4">
-              {activeCustomerOrders.map((ord) => {
-                const steps = [
-                  { key: "new", label: "Qabul qilindi" },
-                  { key: "cooking", label: "Qozonda suzilmoqda" },
-                  { key: "ready", label: ord.orderType === "delivery" ? "Kuryer yo'lda" : "Tayyor! Oling" },
-                  { key: "completed", label: "Topshirildi" }
-                ];
-                const currentIdx = steps.findIndex((s) => s.key === ord.status);
-
-                return (
-                  <div
-                    key={ord.id}
-                    className="p-4 rounded-2xl border-2 border-stone-200 bg-stone-50/70 space-y-3"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-3">
-                        <span
-                          style={{ backgroundColor: config.themeColor }}
-                          className="text-white font-black text-xl px-3.5 py-1.5 rounded-xl shadow"
-                        >
-                          {ord.queueNumber}
-                        </span>
-                        <div>
-                          <div className="font-extrabold text-sm text-stone-900">
-                            {ord.customerName} • {ord.tableName}
-                          </div>
-                          <div className="text-xs text-stone-500">
-                            {new Date(ord.createdAt).toLocaleTimeString("uz-UZ")} •{" "}
-                            {formatMoney(ord.total, config.currency)}
-                          </div>
-                        </div>
+            <div className="space-y-3">
+              {activeCustomerOrders.map((ord) => (
+                <div
+                  key={ord.id}
+                  className="p-4 rounded-2xl border border-stone-800 bg-[#0F0F0F] space-y-2.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-[#D4AF37] text-[#0F0F0F] font-black text-sm px-3 py-1 rounded-xl">
+                        {ord.queueNumber}
+                      </span>
+                      <div>
+                        <div className="text-xs font-bold text-white">{ord.tableName}</div>
+                        <div className="text-[11px] text-stone-400">{ord.customerName}</div>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setReceiptOrder(ord)}
-                        className="px-3 py-1.5 rounded-xl border border-stone-300 bg-white hover:bg-stone-100 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Receipt className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Chekni ko'rish</span>
-                      </button>
                     </div>
-
-                    {/* Progress Steps */}
-                    <div className="grid grid-cols-4 gap-2 pt-1">
-                      {steps.map((st, idx) => {
-                        const done = idx <= currentIdx;
-                        return (
-                          <div key={st.key} className="text-center">
-                            <div
-                              className={`h-2 rounded-full mb-1.5 transition-all ${
-                                done ? "bg-emerald-500" : "bg-stone-200"
-                              }`}
-                            />
-                            <span
-                              className={`text-[11px] font-bold ${
-                                done ? "text-emerald-700" : "text-stone-400"
-                              }`}
-                            >
-                              {st.label}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="text-xs text-stone-600 pt-1 border-t border-stone-200/80">
-                      {(ord.items || []).map((i) => `${i.quantity}x ${i.name}`).join(" • ")}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReceiptOrder(ord)}
+                      className="text-xs font-bold text-[#2DD4BF] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Receipt className="w-3.5 h-3.5" />
+                      <span>Soliq QR Chek</span>
+                    </button>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* ================= RECEIPT MODAL ================= */}
+      {/* Thermal Receipt Preview Modal */}
       {receiptOrder && (
         <ReceiptModal
           order={receiptOrder}

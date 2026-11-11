@@ -1,50 +1,45 @@
 # 📋 Osh Markazi POS & Web Tizimi — Bajarilgan Ishlar Jurnali (WORKLOG.md)
 
-Ushbu faylda loyiha ustida bajarilgan barcha muhandislik ishlari bosqichma-bosqich qayd etilgan.
+Ushbu faylda loyiha ustida bajarilgan barcha muhandislik va UI/UX dizayn ishlari bosqichma-bosqich qayd etilgan.
 
 ---
 
 ## ✅ 1-Bosqich: Asosiy Arxitektura va Boshlang'ich Tizim (Bajarildi)
 - [x] Alohida **Backend API Server** (`backend/server.js`) va **Frontend SPA** (`frontend/`) arxitekturasi qurildi.
 - [x] Real-vaqtda ma'lumot almashish uchun **SSE (Server-Sent Events)** oqimi (`/api/events`) ulandi.
-- [x] Feed-Up uslubidagi mijozlar menyusi, Kombo setlar, Osh porsiya va qo'shimchalar konstruktori yaratildi.
-- [x] GitHub repozitoriy yaratildi: https://github.com/dcoderbaza-bot/osh-markazi-universal-pos
-
----
 
 ## ✅ 2-Bosqich: Yagona Brend, Default Mijozlar Rejimi, Rollar (RBAC), Kiberxavfsizlik va Sodda Chek (Bajarildi)
-- [x] Yagona **"ASL OSH MARKAZI"** brendi qoldirildi.
-- [x] Default holatda faqat **Mijozlar Bo'limi** ko'rinadigan qilindi.
-- [x] Xodimlar uchun RBAC Login-Parollar (`kassir`, `oshpaz`, `ekran`, `soliq`, `admin`, `secadmin`) va **Kiberxavfsizlik (SOC & WAF)** bo'limi qo'shildi.
+- [x] Yagona **"ASL OSH MARKAZI"** brendi, RBAC Login-Parollar (`kassir`, `oshpaz`, `ekran`, `soliq`, `admin`, `secadmin`) va **Kiberxavfsizlik (SOC & WAF)** bo'limi qo'shildi.
+
+## ✅ 3-Bosqich: Soliq.uz (OFD/Fiskal API), Termal Printer (.EXE / Kiosk) va Adaptiv Dizayn (Bajarildi)
+- [x] Soliq API Key generator, 17 xonali MXIK kodlar, 12% QQS, 80mm/58mm Zero-Margin Print Engine va `AslOshPOS-Desktop.bat` yaratildi.
 
 ---
 
-## ✅ 3-Bosqich: Soliq.uz (OFD/Fiskal API) Integratsiyasi, Termal Printer Muammosini Hal Qilish (.EXE / Desktop Silent Print) va Adaptiv Dizayn (Bajarildi)
+## ✅ 4-Bosqich: "Premium Heritage" UI/UX Yangilanishi va Revolyutsion Mijozlar Sayti (Bajarildi)
 
-### 3.1. Soliq.uz (OFD / Onlayn NKM) Fiskal Tizimi va Shaxsiy API Generator (`SoliqApiView.jsx`)
-- [x] **API Kalit Olish va Boshqarish:** Tizim ichida shaxsiy **Soliq API Key (`soliq_live_...`)**, **Fiskal Modul ID (`LG4202600819`)**, **STIR (INN: `309841205`)** va **Maxfiy Kalit (`ofd_sec_...`)** generatsiya qilish imkoniyati qo'shildi.
-- [x] **MXIK (ИКПУ) va 12% QQS (NDS) Avto-Hisoblagich:** Har bir taomga 17 xonali MXIK kodi (`10705001001000000`) biriktirildi va har bir chekda 12% QQS (NDS) summasi avtomatik ajratib ko'rsatiladi.
-- [x] **Fiskal QR-Kod va OFD Tekshiruv:** Har bir chekda `ofd.soliq.uz` standartidagi haqiqiy vektor SVG QR-kod, Fiskal belgi (12 xonali) va 1% Soliq Keshbek ma'lumoti chiqarildi.
-- [x] **Jonli API Sinov Maydonchasi (Interactive API Playground):** `/api/soliq/status`, `/api/soliq/receipts`, `/api/soliq/register-receipt`, `/api/soliq/verify/:fiscalSign`, `/api/soliq/z-report` endpointlarini dastur ichida sinab ko'rish va JSON/cURL kodini olish qo'shildi.
+### 4.1. "Premium Heritage" Ranglar Palitrasi va Tipografika (`index.html` & `index.css`)
+- [x] **Ranglar:** Chuqur qora/qozon fon (`#0F0F0F`), Oltin-za'faron (`#D4AF37`), Mis/terrakota (`#C85A32`) va Feruza lagan aksenti (`#008B8B`).
+- [x] **Tipografika:** Google Fonts orqali sarlavhalar uchun **`Playfair Display`** va **`Cinzel`**, matn va menyu uchun **`Plus Jakarta Sans`** ulandi.
+- [x] **Atmosfera:** CSS/SVG sekin ko'tariluvchi bug' (`steamRise`) animatsiyasi, sharqona girih lagan naqshlari va silliq o'tishlar.
 
-### 3.2. Termal Printer Muammosini Muhandislik Usulida Hal Qilish va Desktop (.EXE / App Mode)
-- [x] **Muhandislik Yechimi #1 — Izolyatsiyalangan Zero-Margin Print Engine (`printEngine.js`):** Maxsus yashirin `iframe` orqali `@page { size: 80mm auto; margin: 0mm !important; }` qoidasi bilan brauzer sarlavhalarini 100% yo'qotib, 80mm va 58mm lentalarga millimetrigacha aniq tushadigan chop etish dvigateli yaratildi.
-- [x] **Muhandislik Yechimi #2 — Backend Windows Printer & Spooler Bridge (`POST /api/printer/print-raw`):** Kompyuterga ulangan real Windows printerlarini (`Get-Printer`) aniqlash va to'g'ridan-to'g'ri chop etish ulandi.
-- [x] **Muhandislik Yechimi #3 — Desktop Dastur Rejimi (`AslOshPOS-Desktop.bat` & `AslOshPOS-Silent.vbs`):** Dasturni oynasiz (Native Desktop App ko'rinishida) va **`--kiosk-printing` (Dialog oynasisiz 0.2 soniyada avtomatik chek chiqarish)** rejimida ishga tushiruvchi Desktop Launcher yaratildi.
+### 4.2. Hero Section + "Jonli Qozon" (Live Kazan Tracker) Vidjeti
+- [x] Katta ekranda bug'i chiqib turgan Toshkent to'y oshi tasviri va jonli bug' effekti (`94°C ISSIQ BUG'`).
+- [x] **"Jonli Qozon" (Live Kazan Tracker)** vidjeti va sekundomeri:
+  - *1-Qozon (Toshkent To'y oshi): Tayyor — 45 porsiya qoldi*
+  - *2-Qozon (Choyxona oshi): 20 daqiqada suziladi* (real-vaqt taymeri bilan)
+  - *3-Qozon (Andijon Devzira oshi): Tayyor — 32 porsiya qoldi*
+  - *4-Qozon (Samarqandcha Zig'ir oshi): 14 daqiqada suziladi*
 
-### 3.3. Barcha Qurilmalar Uchun Adaptiv Resolution (Responsive UX/UI)
-- [x] **Mobil (`320px - 640px`), Planshet (`768px - 1024px`), POS Monoblok (`1024px - 1366px`) va Katta TV (`1920px+`):** POS kassada mobil/planshet uchun suzuvchi Chek Drawer, moslashuvchan grid va `100dvh` o'lchamlari to'g'rilandi.
+### 4.3. Aqlli "Osh Kalkulyatori" (Interactive Plov Builder)
+- [x] Mehmonlar sonini kiritish (`1` dan `50` kishigacha slider va tezkor `2`, `4`, `8`, `12`, `20` kishi tugmalari).
+- [x] Avtomatik hisoblash: necha kg/porsiya osh, necha bo'lak qazi, bedana tuxumi, kovatok do'lma, achichuk salat, patir non va choy kerakligini hisoblab, **"Bir tugma bilan savatchaga qo'shish"** funksiyasi.
 
----
+### 4.4. Interaktiv Menyu (Kartochka ichida Qo'shimchalar Toggle Tugmalari)
+- [x] Har bir osh kartochkasining o'zida ustiga **Qazi**, **Do'lma**, **Sarimsoq**, **Achchiq qalampir**, **Bedana tuxumi**, **Pay** qo'shish uchun interaktiv "toggle" tugmalari va jonli narx o'zgarishi.
 
-## 🔐 Xodimlar Rollari va Login-Parollar Jadvali
+### 4.5. Oshpazlar va Siri (Scrollytelling Taymlayn)
+- [x] Cho'yan qozon va yog' dog'lash (`210°C`), Oltin zirvak qovurilishi (`145°C`), Lazer/Devzira guruchi damlanishi (`96°C`) va Rishton sopol laganida tortiq (`88°C`) bosqichlarini ko'rsatuvchi interaktiv Scrollytelling bo'limi.
 
-| Rol | Login | Parol | Ruxsat etilgan bo'limlar |
-| :--- | :--- | :--- | :--- |
-| **🌐 Mijoz (Default)** | *Login shart emas* | — | Mijozlar Sayti (Menyu, Savat, Navbat kuzatuvi) |
-| **🖥️ Kassir (POS)** | `kassir` | `kassir123` | POS Kassa, Navbat TV, Soliq API & Printer |
-| **👨‍🍳 Oshpaz (KDS)** | `oshpaz` | `oshpaz123` | Oshxona Ekrani (KDS), Navbat TV |
-| **📺 Navbat TV** | `ekran` | `ekran123` | Elektron Navbat TV Ekrani |
-| **🏛️ Soliq / Buxgalter** | `soliq` | `soliq123` | Soliq API & Printer, Admin Panel |
-| **👔 Admin / Rahbar** | `admin` | `admin123` | Barcha bo'limlar (Admin, POS, KDS, TV, Soliq API, Kiberxavfsizlik) |
-| **🛡️ Kiberxavfsizlik** | `secadmin` | `sec12345` | Kiberxavfsizlik Markazi (SOC), Soliq API, Admin |
+### 4.6. Sopol Lagan / Termos-Idish Tanlovi, Joy Band Qilish va Filiallar Xaritasi
+- [x] **Rishton Sopol Laganida** yoki **Maxsus Germetik Termos-Idishda** yetkazish tanlovi, issiq yetkazib berish taymeri, VIP xona/so'ri/stol bron qilish formasi va interaktiv Toshkent filiallar xaritasi.
